@@ -64,28 +64,68 @@ class DecompositionType(str, Enum):
 class Circumstance(str, Enum):
     """Circumstance variables available in ESRU-EMOVI 2023.
 
-    Source columns in parentheses:
-    - educp: Father's education (4 categories: primaria o menos, secundaria, media superior, profesional)
-    - educm: Mother's education (4 categories, same as above)
-    - clasep: Father's occupational class (6 categories)
-    - p110: Ethnic self-identification (5 categories)
-    - p111: Indigenous language speaker (binary)
-    - skin_tone_num: Derived from p112 (letters A-K -> 1-11)
-    - skin_tone_cielab: From p113dL (CIELab L* continuous, colorimeter)
-    - region_14: Region where lived at age 14 (5 regions)
-    - rural_14: Derived from p21 (urbanity at age 14, binarized)
-    - gender: From sexo (recoded to 0=female, 1=male)
+    All measured at or before age 14 (predetermined under Roemer framework).
+    Organized by domain. Source columns in parentheses.
+
+    Individual variables are kept for distinct concepts.
+    Composite indices aggregate groups of related binary items
+    (e.g., 15 household assets -> 1 count) to control dimensionality.
     """
-    FATHER_EDUCATION = "father_education"
-    MOTHER_EDUCATION = "mother_education"
-    FATHER_OCCUPATION = "father_occupation"
-    ETHNICITY = "ethnicity"
-    INDIGENOUS_LANGUAGE = "indigenous_language"
-    SKIN_TONE = "skin_tone"
-    SKIN_TONE_CIELAB = "skin_tone_cielab"
-    REGION_14 = "region_14"
-    RURAL_14 = "rural_14"
-    GENDER = "gender"
+
+    # === Parental education (4-category: sin estudios/basica/media/superior) ===
+    FATHER_EDUCATION = "father_education"      # educp (4 cat)
+    MOTHER_EDUCATION = "mother_education"      # educm (4 cat)
+    FATHER_LITERACY = "father_literacy"        # p44a (binary)
+    MOTHER_LITERACY = "mother_literacy"        # p44b (binary)
+
+    # === Parental education (6-category CEEY scale from p43+p44) ===
+    # sin estudios / primaria incompleta / primaria completa /
+    # secundaria / preparatoria / profesional
+    FATHER_EDUCATION_6 = "father_education_6"  # from p43+p44 (6 cat)
+    MOTHER_EDUCATION_6 = "mother_education_6"  # from p43m+p44m (6 cat)
+    MAX_PARENT_EDUCATION = "max_parent_education"  # max(father, mother) -- CEEY primary
+
+    # === Parental occupation ===
+    FATHER_OCCUPATION = "father_occupation"    # clasep (6 cat)
+    MOTHER_OCCUPATION = "mother_occupation"    # clasem (6 cat)
+
+    # === Ethnicity & phenotype ===
+    ETHNICITY = "ethnicity"                    # p110 (5 cat)
+    INDIGENOUS_LANGUAGE = "indigenous_language"  # p111 (binary)
+    SKIN_TONE = "skin_tone"                    # p112 letters A-K -> 1-11
+    SKIN_TONE_CIELAB = "skin_tone_cielab"      # p113dL (CIELab L*, continuous)
+
+    # === Geography at 14 ===
+    REGION_14 = "region_14"                    # region_14 (5 regions)
+    STATE_14 = "state_14"                      # p19 (32 states)
+    RURAL_14 = "rural_14"                      # p21 (binarized)
+
+    # === Gender ===
+    GENDER = "gender"                          # sexo (binary)
+
+    # === Family structure at 14 ===
+    HH_SIZE_14 = "hh_size_14"                  # p22 (count)
+    N_SIBLINGS = "n_siblings"                  # p57 (count)
+    BIRTH_ORDER = "birth_order"                # p58 (ordinal)
+    LIVED_WITH_14 = "lived_with_14"            # p39 (categorical)
+    BREADWINNER_14 = "breadwinner_14"          # p40 (categorical)
+
+    # === Material conditions at 14 (composite indices) ===
+    DWELLING_ROOMS_14 = "dwelling_rooms_14"    # p23 total rooms (count)
+    DWELLING_QUALITY_14 = "dwelling_quality_14"  # p25 floor + p28 type -> index
+    DWELLING_AMENITIES_14 = "dwelling_amenities_14"  # p26a-e -> count 0-5
+    DWELLING_FEATURES_14 = "dwelling_features_14"    # p29a-g -> count 0-7
+    N_AUTOMOBILES_14 = "n_automobiles_14"      # p30 (count)
+    HH_ASSETS_14 = "hh_assets_14"              # p31a-o -> count 0-15
+    FINANCIAL_ASSETS_14 = "financial_assets_14"  # p32a-o -> count 0-15
+    NEIGHBORHOOD_QUALITY_14 = "neighborhood_quality_14"  # p33a-i -> count 0-9
+    FLOOR_MATERIAL_14 = "floor_material_14"    # p25: tierra=0, otro=1 (binary)
+    OVERCROWDING_14 = "overcrowding_14"        # p22/p23: hacinamiento ratio (continuous)
+
+    # === CEEY official wealth index (MCA-based) ===
+    # IREH-O: Indice de Recursos Economicos del Hogar de Origen
+    # 19 binary assets + hacinamiento, estimated via MCA (Burt) per cohort
+    WEALTH_INDEX_ORIGIN = "wealth_index_origin"  # IREH-O (continuous, MCA score)
 
 
 class SampleFilter(str, Enum):

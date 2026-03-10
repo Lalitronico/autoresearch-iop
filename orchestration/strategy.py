@@ -22,19 +22,26 @@ from orchestration.coverage_tracker import compute_coverage
 from orchestration.experiment_log import get_completed_spec_ids
 
 
-# Core circumstance sets for systematic coverage
+# Core circumstance sets for systematic coverage.
+# Organized from minimal to maximal, reflecting IOp literature conventions.
+# IOp is monotonically non-decreasing in the number of circumstances,
+# so each level adds information about how much the lower bound grows.
 CORE_CIRC_SETS: list[tuple[str, ...]] = [
-    # Minimal sets
+    # 1. Minimal: single variable (baseline benchmark)
     (Circumstance.FATHER_EDUCATION.value,),
+
+    # 2. Minimal pair: education + ethnicity
     (Circumstance.FATHER_EDUCATION.value, Circumstance.ETHNICITY.value),
-    # Standard set (common in IOp literature)
+
+    # 3. Classic IOp (Ferreira-Gignoux style): parental SES + ethnicity
     (
         Circumstance.FATHER_EDUCATION.value,
         Circumstance.MOTHER_EDUCATION.value,
         Circumstance.FATHER_OCCUPATION.value,
         Circumstance.ETHNICITY.value,
     ),
-    # Extended set
+
+    # 4. Extended classic + phenotype + geography
     (
         Circumstance.FATHER_EDUCATION.value,
         Circumstance.MOTHER_EDUCATION.value,
@@ -43,21 +50,97 @@ CORE_CIRC_SETS: list[tuple[str, ...]] = [
         Circumstance.SKIN_TONE.value,
         Circumstance.REGION_14.value,
     ),
-    # Extended + indigenous language
+
+    # 5. Full parental + identity + geography
     (
         Circumstance.FATHER_EDUCATION.value,
         Circumstance.MOTHER_EDUCATION.value,
         Circumstance.FATHER_OCCUPATION.value,
+        Circumstance.MOTHER_OCCUPATION.value,
         Circumstance.ETHNICITY.value,
         Circumstance.INDIGENOUS_LANGUAGE.value,
         Circumstance.SKIN_TONE.value,
         Circumstance.REGION_14.value,
         Circumstance.RURAL_14.value,
     ),
-    # Full set (all except gender, which is not a "circumstance" in all frameworks)
+
+    # 6. Add family structure
+    (
+        Circumstance.FATHER_EDUCATION.value,
+        Circumstance.MOTHER_EDUCATION.value,
+        Circumstance.FATHER_OCCUPATION.value,
+        Circumstance.MOTHER_OCCUPATION.value,
+        Circumstance.ETHNICITY.value,
+        Circumstance.INDIGENOUS_LANGUAGE.value,
+        Circumstance.SKIN_TONE.value,
+        Circumstance.REGION_14.value,
+        Circumstance.RURAL_14.value,
+        Circumstance.HH_SIZE_14.value,
+        Circumstance.N_SIBLINGS.value,
+        Circumstance.BIRTH_ORDER.value,
+    ),
+
+    # 7. Add material conditions (wealth indices)
+    (
+        Circumstance.FATHER_EDUCATION.value,
+        Circumstance.MOTHER_EDUCATION.value,
+        Circumstance.FATHER_OCCUPATION.value,
+        Circumstance.MOTHER_OCCUPATION.value,
+        Circumstance.ETHNICITY.value,
+        Circumstance.INDIGENOUS_LANGUAGE.value,
+        Circumstance.SKIN_TONE.value,
+        Circumstance.REGION_14.value,
+        Circumstance.RURAL_14.value,
+        Circumstance.HH_ASSETS_14.value,
+        Circumstance.FINANCIAL_ASSETS_14.value,
+        Circumstance.DWELLING_AMENITIES_14.value,
+        Circumstance.NEIGHBORHOOD_QUALITY_14.value,
+    ),
+
+    # 8. Full set (all except gender)
     tuple(c.value for c in Circumstance if c != Circumstance.GENDER),
-    # Full set including gender
+
+    # 9. Full set including gender
     tuple(c.value for c in Circumstance),
+
+    # 10. Material conditions only (test: how much does childhood wealth
+    #     explain vs parental human capital?)
+    (
+        Circumstance.HH_ASSETS_14.value,
+        Circumstance.FINANCIAL_ASSETS_14.value,
+        Circumstance.DWELLING_AMENITIES_14.value,
+        Circumstance.DWELLING_FEATURES_14.value,
+        Circumstance.DWELLING_ROOMS_14.value,
+        Circumstance.NEIGHBORHOOD_QUALITY_14.value,
+        Circumstance.N_AUTOMOBILES_14.value,
+    ),
+
+    # 11. CEEY-comparable: uses exact CEEY variables (IREH-O + max_parent_edu + region)
+    # Allows direct comparison with Informe de Movilidad Social results
+    (
+        Circumstance.MAX_PARENT_EDUCATION.value,
+        Circumstance.WEALTH_INDEX_ORIGIN.value,
+        Circumstance.REGION_14.value,
+        Circumstance.ETHNICITY.value,
+        Circumstance.GENDER.value,
+    ),
+
+    # 12. IREH-O only (test: how much does the MCA-weighted index explain
+    #     vs our crude count indices?)
+    (
+        Circumstance.WEALTH_INDEX_ORIGIN.value,
+    ),
+
+    # 13. 6-category education + IREH-O (richer human capital + wealth)
+    (
+        Circumstance.FATHER_EDUCATION_6.value,
+        Circumstance.MOTHER_EDUCATION_6.value,
+        Circumstance.FATHER_OCCUPATION.value,
+        Circumstance.MOTHER_OCCUPATION.value,
+        Circumstance.WEALTH_INDEX_ORIGIN.value,
+        Circumstance.ETHNICITY.value,
+        Circumstance.REGION_14.value,
+    ),
 ]
 
 # Priority income variables

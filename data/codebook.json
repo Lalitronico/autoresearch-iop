@@ -1,6 +1,6 @@
 {
   "n_observations": 500,
-  "n_variables": 15,
+  "n_variables": 38,
   "variables": {
     "father_education": {
       "dtype": "float64",
@@ -28,6 +28,73 @@
         "3.0": 85
       }
     },
+    "father_literacy": {
+      "dtype": "float64",
+      "n_missing": 0,
+      "pct_missing": 0.0,
+      "role": "circumstance",
+      "unique_values": 2,
+      "value_counts": {
+        "1.0": 403,
+        "0.0": 97
+      }
+    },
+    "mother_literacy": {
+      "dtype": "float64",
+      "n_missing": 0,
+      "pct_missing": 0.0,
+      "role": "circumstance",
+      "unique_values": 2,
+      "value_counts": {
+        "1.0": 373,
+        "0.0": 127
+      }
+    },
+    "father_education_6": {
+      "dtype": "float64",
+      "n_missing": 0,
+      "pct_missing": 0.0,
+      "role": "circumstance",
+      "unique_values": 6,
+      "value_counts": {
+        "2.0": 137,
+        "1.0": 120,
+        "4.0": 118,
+        "6.0": 51,
+        "3.0": 43,
+        "5.0": 31
+      }
+    },
+    "mother_education_6": {
+      "dtype": "float64",
+      "n_missing": 0,
+      "pct_missing": 0.0,
+      "role": "circumstance",
+      "unique_values": 6,
+      "value_counts": {
+        "2.0": 147,
+        "1.0": 129,
+        "4.0": 91,
+        "6.0": 51,
+        "3.0": 48,
+        "5.0": 34
+      }
+    },
+    "max_parent_education": {
+      "dtype": "float64",
+      "n_missing": 0,
+      "pct_missing": 0.0,
+      "role": "circumstance",
+      "unique_values": 6,
+      "value_counts": {
+        "4.0": 147,
+        "2.0": 112,
+        "6.0": 97,
+        "5.0": 61,
+        "3.0": 57,
+        "1.0": 26
+      }
+    },
     "father_occupation": {
       "dtype": "float64",
       "n_missing": 0,
@@ -35,12 +102,27 @@
       "role": "circumstance",
       "unique_values": 6,
       "value_counts": {
-        "0.0": 104,
-        "2.0": 99,
-        "1.0": 91,
-        "3.0": 75,
-        "4.0": 75,
-        "5.0": 56
+        "0.0": 99,
+        "1.0": 97,
+        "2.0": 95,
+        "3.0": 86,
+        "4.0": 73,
+        "5.0": 50
+      }
+    },
+    "mother_occupation": {
+      "dtype": "float64",
+      "n_missing": 0,
+      "pct_missing": 0.0,
+      "role": "circumstance",
+      "unique_values": 6,
+      "value_counts": {
+        "0.0": 156,
+        "1.0": 94,
+        "2.0": 90,
+        "3.0": 80,
+        "4.0": 46,
+        "5.0": 34
       }
     },
     "ethnicity": {
@@ -50,11 +132,11 @@
       "role": "circumstance",
       "unique_values": 5,
       "value_counts": {
-        "0.0": 192,
-        "1.0": 127,
-        "2.0": 75,
-        "3.0": 63,
-        "4.0": 43
+        "0.0": 204,
+        "1.0": 128,
+        "2.0": 68,
+        "3.0": 56,
+        "4.0": 44
       }
     },
     "indigenous_language": {
@@ -64,8 +146,8 @@
       "role": "circumstance",
       "unique_values": 2,
       "value_counts": {
-        "0.0": 453,
-        "1.0": 47
+        "0.0": 454,
+        "1.0": 46
       }
     },
     "skin_tone": {
@@ -75,17 +157,17 @@
       "role": "circumstance",
       "unique_values": 11,
       "value_counts": {
-        "6.0": 54,
-        "10.0": 50,
-        "3.0": 48,
+        "5.0": 59,
+        "8.0": 54,
         "4.0": 48,
-        "7.0": 45,
-        "9.0": 45,
-        "11.0": 44,
-        "5.0": 43,
-        "1.0": 42,
-        "8.0": 41,
-        "2.0": 40
+        "9.0": 46,
+        "1.0": 45,
+        "10.0": 45,
+        "2.0": 44,
+        "3.0": 43,
+        "11.0": 43,
+        "6.0": 39,
+        "7.0": 34
       }
     },
     "skin_tone_cielab": {
@@ -93,13 +175,13 @@
       "n_missing": 0,
       "pct_missing": 0.0,
       "role": "circumstance",
-      "mean": 55.5433273357336,
-      "std": 9.936070932990381,
+      "mean": 54.21863601856556,
+      "std": 9.716153762910382,
       "min": 30.0,
-      "max": 85.0,
-      "median": 55.26387733501363,
-      "p25": 48.35294565715647,
-      "p75": 62.49861231051676
+      "max": 83.57473075464706,
+      "median": 54.37707013673524,
+      "p25": 47.66001469635883,
+      "p75": 60.78616101487332
     },
     "region_14": {
       "dtype": "float64",
@@ -108,12 +190,25 @@
       "role": "circumstance",
       "unique_values": 5,
       "value_counts": {
-        "2.0": 115,
-        "0.0": 108,
-        "4.0": 96,
-        "3.0": 91,
-        "1.0": 90
+        "3.0": 110,
+        "1.0": 109,
+        "4.0": 99,
+        "0.0": 99,
+        "2.0": 83
       }
+    },
+    "state_14": {
+      "dtype": "float64",
+      "n_missing": 0,
+      "pct_missing": 0.0,
+      "role": "circumstance",
+      "mean": 15.708,
+      "std": 9.28737026789532,
+      "min": 0.0,
+      "max": 31.0,
+      "median": 17.0,
+      "p25": 8.0,
+      "p75": 24.0
     },
     "rural_14": {
       "dtype": "float64",
@@ -122,8 +217,8 @@
       "role": "circumstance",
       "unique_values": 2,
       "value_counts": {
-        "0.0": 293,
-        "1.0": 207
+        "0.0": 289,
+        "1.0": 211
       }
     },
     "gender": {
@@ -133,22 +228,280 @@
       "role": "circumstance",
       "unique_values": 2,
       "value_counts": {
-        "1.0": 253,
-        "0.0": 247
+        "1.0": 251,
+        "0.0": 249
       }
+    },
+    "hh_size_14": {
+      "dtype": "float64",
+      "n_missing": 0,
+      "pct_missing": 0.0,
+      "role": "circumstance",
+      "unique_values": 12,
+      "value_counts": {
+        "4.0": 104,
+        "5.0": 103,
+        "6.0": 94,
+        "7.0": 52,
+        "3.0": 36,
+        "2.0": 24,
+        "8.0": 22,
+        "9.0": 18,
+        "10.0": 18,
+        "11.0": 13,
+        "1.0": 11,
+        "12.0": 5
+      }
+    },
+    "n_siblings": {
+      "dtype": "float64",
+      "n_missing": 0,
+      "pct_missing": 0.0,
+      "role": "circumstance",
+      "unique_values": 11,
+      "value_counts": {
+        "2.0": 104,
+        "4.0": 98,
+        "3.0": 97,
+        "1.0": 81,
+        "5.0": 56,
+        "0.0": 26,
+        "6.0": 20,
+        "7.0": 13,
+        "11.0": 2,
+        "9.0": 2,
+        "8.0": 1
+      }
+    },
+    "birth_order": {
+      "dtype": "float64",
+      "n_missing": 0,
+      "pct_missing": 0.0,
+      "role": "circumstance",
+      "unique_values": 7,
+      "value_counts": {
+        "1.0": 127,
+        "3.0": 124,
+        "2.0": 99,
+        "4.0": 64,
+        "5.0": 36,
+        "6.0": 28,
+        "7.0": 22
+      }
+    },
+    "lived_with_14": {
+      "dtype": "float64",
+      "n_missing": 0,
+      "pct_missing": 0.0,
+      "role": "circumstance",
+      "unique_values": 4,
+      "value_counts": {
+        "0.0": 358,
+        "1.0": 76,
+        "2.0": 45,
+        "3.0": 21
+      }
+    },
+    "breadwinner_14": {
+      "dtype": "float64",
+      "n_missing": 0,
+      "pct_missing": 0.0,
+      "role": "circumstance",
+      "unique_values": 4,
+      "value_counts": {
+        "0.0": 313,
+        "1.0": 117,
+        "2.0": 41,
+        "3.0": 29
+      }
+    },
+    "dwelling_rooms_14": {
+      "dtype": "float64",
+      "n_missing": 0,
+      "pct_missing": 0.0,
+      "role": "circumstance",
+      "unique_values": 10,
+      "value_counts": {
+        "4.0": 102,
+        "3.0": 94,
+        "2.0": 82,
+        "5.0": 67,
+        "1.0": 50,
+        "6.0": 47,
+        "7.0": 34,
+        "8.0": 21,
+        "9.0": 2,
+        "11.0": 1
+      }
+    },
+    "dwelling_quality_14": {
+      "dtype": "float64",
+      "n_missing": 0,
+      "pct_missing": 0.0,
+      "role": "circumstance",
+      "mean": 0.76928,
+      "std": 0.3870823518247614,
+      "min": 0.0,
+      "max": 1.94,
+      "median": 0.77,
+      "p25": 0.52,
+      "p75": 1.0025
+    },
+    "dwelling_amenities_14": {
+      "dtype": "float64",
+      "n_missing": 0,
+      "pct_missing": 0.0,
+      "role": "circumstance",
+      "unique_values": 6,
+      "value_counts": {
+        "3.0": 153,
+        "2.0": 139,
+        "4.0": 100,
+        "1.0": 66,
+        "5.0": 26,
+        "0.0": 16
+      }
+    },
+    "dwelling_features_14": {
+      "dtype": "float64",
+      "n_missing": 0,
+      "pct_missing": 0.0,
+      "role": "circumstance",
+      "unique_values": 8,
+      "value_counts": {
+        "4.0": 140,
+        "3.0": 124,
+        "2.0": 97,
+        "5.0": 54,
+        "1.0": 51,
+        "6.0": 17,
+        "0.0": 10,
+        "7.0": 7
+      }
+    },
+    "n_automobiles_14": {
+      "dtype": "float64",
+      "n_missing": 0,
+      "pct_missing": 0.0,
+      "role": "circumstance",
+      "unique_values": 5,
+      "value_counts": {
+        "0.0": 249,
+        "1.0": 177,
+        "2.0": 59,
+        "3.0": 12,
+        "4.0": 3
+      }
+    },
+    "hh_assets_14": {
+      "dtype": "float64",
+      "n_missing": 0,
+      "pct_missing": 0.0,
+      "role": "circumstance",
+      "unique_values": 13,
+      "value_counts": {
+        "7.0": 89,
+        "6.0": 88,
+        "5.0": 59,
+        "4.0": 57,
+        "9.0": 55,
+        "8.0": 50,
+        "10.0": 37,
+        "3.0": 28,
+        "11.0": 15,
+        "12.0": 10,
+        "2.0": 9,
+        "1.0": 2,
+        "15.0": 1
+      }
+    },
+    "financial_assets_14": {
+      "dtype": "float64",
+      "n_missing": 0,
+      "pct_missing": 0.0,
+      "role": "circumstance",
+      "unique_values": 10,
+      "value_counts": {
+        "2.0": 104,
+        "3.0": 104,
+        "4.0": 89,
+        "1.0": 79,
+        "5.0": 50,
+        "0.0": 28,
+        "6.0": 28,
+        "7.0": 12,
+        "8.0": 5,
+        "9.0": 1
+      }
+    },
+    "neighborhood_quality_14": {
+      "dtype": "float64",
+      "n_missing": 0,
+      "pct_missing": 0.0,
+      "role": "circumstance",
+      "unique_values": 10,
+      "value_counts": {
+        "4.0": 127,
+        "5.0": 107,
+        "3.0": 83,
+        "6.0": 75,
+        "7.0": 42,
+        "2.0": 34,
+        "1.0": 14,
+        "8.0": 13,
+        "0.0": 4,
+        "9.0": 1
+      }
+    },
+    "floor_material_14": {
+      "dtype": "float64",
+      "n_missing": 0,
+      "pct_missing": 0.0,
+      "role": "circumstance",
+      "unique_values": 2,
+      "value_counts": {
+        "1.0": 365,
+        "0.0": 135
+      }
+    },
+    "overcrowding_14": {
+      "dtype": "float64",
+      "n_missing": 0,
+      "pct_missing": 0.0,
+      "role": "circumstance",
+      "mean": 1.92972,
+      "std": 1.6175663706714027,
+      "min": 0.17,
+      "max": 12.0,
+      "median": 1.4,
+      "p25": 1.0,
+      "p75": 2.33
+    },
+    "wealth_index_origin": {
+      "dtype": "float64",
+      "n_missing": 0,
+      "pct_missing": 0.0,
+      "role": "circumstance",
+      "mean": 5.27005521116553,
+      "std": 1.53631103440079,
+      "min": 0.8058377796737801,
+      "max": 8.897997549675315,
+      "median": 5.370891438904783,
+      "p25": 4.313102396775144,
+      "p75": 6.451866096340302
     },
     "age": {
       "dtype": "float64",
       "n_missing": 0,
       "pct_missing": 0.0,
       "role": "demographic",
-      "mean": 44.384,
-      "std": 11.489672281587344,
+      "mean": 43.992,
+      "std": 11.717274642599284,
       "min": 25.0,
       "max": 64.0,
-      "median": 43.5,
-      "p25": 35.0,
-      "p75": 54.0
+      "median": 44.0,
+      "p25": 34.0,
+      "p75": 53.25
     },
     "urban": {
       "dtype": "float64",
@@ -157,8 +510,8 @@
       "role": "demographic",
       "unique_values": 2,
       "value_counts": {
-        "1.0": 332,
-        "0.0": 168
+        "1.0": 356,
+        "0.0": 144
       }
     },
     "hh_pc_imputed": {
@@ -166,39 +519,39 @@
       "n_missing": 0,
       "pct_missing": 0.0,
       "role": "income",
-      "mean": 15567.908370087009,
-      "std": 11870.905789004284,
-      "min": 462.97307459534517,
-      "max": 91453.97199504465,
-      "median": 12375.61484155025,
-      "p25": 7616.0551652297045,
-      "p75": 19836.864195194856
+      "mean": 26524.351048322435,
+      "std": 22839.455490455348,
+      "min": 1954.2649396525246,
+      "max": 192822.8980483406,
+      "median": 20981.634217399576,
+      "p25": 11743.03185857181,
+      "p75": 33051.095790534826
     },
     "hh_total_reported": {
       "dtype": "float64",
-      "n_missing": 114,
-      "pct_missing": 22.8,
+      "n_missing": 121,
+      "pct_missing": 24.2,
       "role": "income",
-      "mean": 56991.1519316653,
-      "std": 48929.31824686469,
-      "min": 1366.5788255258528,
-      "max": 389532.42609729833,
-      "median": 42799.1490753712,
-      "p25": 24676.33703082618,
-      "p75": 68991.16485076614
+      "mean": 94545.00634383988,
+      "std": 84936.90429761788,
+      "min": 6262.745111723214,
+      "max": 571216.6140250466,
+      "median": 65671.62185224243,
+      "p25": 37675.71517512524,
+      "p75": 121365.90650839763
     },
     "weight": {
       "dtype": "float64",
       "n_missing": 0,
       "pct_missing": 0.0,
       "role": "weight",
-      "mean": 1.7574524454482534,
-      "std": 0.7347784681214732,
-      "min": 0.5064465262164657,
-      "max": 2.9999425510442355,
-      "median": 1.7416591708890576,
-      "p25": 1.160800682053713,
-      "p75": 2.422922232108937
+      "mean": 1.7820584249384337,
+      "std": 0.7162511170578515,
+      "min": 0.5013946298324676,
+      "max": 2.9999562211055975,
+      "median": 1.792192724692241,
+      "p25": 1.1401381771687027,
+      "p75": 2.4303012218897924
     }
   }
 }

@@ -82,6 +82,282 @@ def _skin_tone_letter_to_num(val) -> float | None:
         return np.nan
 
 
+def _map_categorical(df: pd.DataFrame, out: pd.DataFrame,
+                     src: str, dst: str) -> None:
+    """Map a categorical raw column to the analytical dataset."""
+    if src in df.columns:
+        out[dst] = df[src].copy()
+        logger.info(f"  Mapped: {src} -> {dst} ({df[src].nunique()} categories)")
+    else:
+        logger.warning(f"  {src} not found")
+
+
+def _map_binary(df: pd.DataFrame, out: pd.DataFrame,
+                src: str, dst: str) -> None:
+    """Map a binary raw column to the analytical dataset."""
+    if src in df.columns:
+        out[dst] = pd.to_numeric(df[src], errors="coerce")
+        logger.info(f"  Mapped: {src} -> {dst} (binary)")
+    else:
+        logger.warning(f"  {src} not found")
+
+
+def _map_numeric(df: pd.DataFrame, out: pd.DataFrame,
+                 src: str, dst: str) -> None:
+    """Map a numeric raw column to the analytical dataset."""
+    if src in df.columns:
+        out[dst] = pd.to_numeric(df[src], errors="coerce")
+        n_valid = out[dst].notna().sum()
+        logger.info(f"  Mapped: {src} -> {dst} ({n_valid} valid)")
+    else:
+        logger.warning(f"  {src} not found")
+
+
+def _build_count_index(df: pd.DataFrame, out: pd.DataFrame,
+                       dst: str, src_cols: list[str]) -> None:
+    """Build a count index from binary columns (sum of 1s).
+
+    Treats values >= 1 as present (1), 0 or NaN as absent (0).
+    Result is NaN only if ALL source columns are missing.
+    """
+    found = [c for c in src_cols if c in df.columns]
+    if not found:
+        logger.warning(f"  No columns found for {dst} (tried {src_cols[:3]}...)")
+        return
+    binary = pd.DataFrame({
+        c: pd.to_numeric(df[c], errors="coerce").ge(1).astype(float)
+        for c in found
+    })
+    # NaN in original -> NaN in binary indicator
+    for c in found:
+        binary.loc[pd.to_numeric(df[c], errors="coerce").isna(), c] = np.nan
+    out[dst] = binary.sum(axis=1, min_count=1)  # NaN if all missing
+    logger.info(f"  Built index: {dst} from {len(found)}/{len(src_cols)} cols "
+                f"(range {out[dst].min():.0f}-{out[dst].max():.0f})")
+
+
+# CEEY state-to-region mapping (from Informe de Movilidad Social 2025 do-file)
+# R1=Norte, R2=Noroccidente, R3=Centro-norte, R4=Centro, R5=Sur
+CEEY_STATE_TO_REGION: dict[int, int] = {
+    # R1 Norte
+    2: 1, 5: 1, 8: 1, 19: 1, 26: 1, 28: 1,
+    # R2 Noroccidente
+    3: 2, 10: 2, 18: 2, 25: 2, 32: 2,
+    # R3 Centro-norte
+    1: 3, 6: 3, 14: 3, 16: 3, 24: 3,
+    # R4 Centro
+    9: 4, 11: 4, 13: 4, 15: 4, 17: 4, 21: 4, 22: 4, 29: 4,
+    # R5 Sur
+    4: 5, 7: 5, 12: 5, 20: 5, 23: 5, 27: 5, 30: 5, 31: 5,
+}
+
+
+def _build_education_6(df: pd.DataFrame, nivel_col: str, grado_col: str) -> pd.Series:
+    """Build 6-category education scale from EMOVI nivel + grado columns.
+
+    CEEY methodology from Informe de Movilidad Social 2025:
+    1 = Sin estudios
+    2 = Primaria incompleta
+    3 = Primaria completa
+    4 = Secundaria (completa o incompleta)
+    5 = Preparatoria (completa o incompleta)
+    6 = Profesional (completa o incompleta)
+    """
+    if nivel_col not in df.columns:
+        return pd.Series(np.nan, index=df.index, dtype=float)
+
+    nivel = pd.to_numeric(df[nivel_col], errors="coerce")
+    grado = pd.to_numeric(df.get(grado_col, pd.Series(np.nan, index=df.index)),
+                          errors="coerce")
+
+    result = pd.Series(np.nan, index=df.index, dtype=float)
+
+    # Sin estudios (nivel == 0 or nivel == 1 with grado == 0, depending on coding)
+    # CEEY: gen educ_padre=1 if p43==0 (ninguno)
+    result.loc[nivel == 0] = 1.0
+
+    # Primaria: nivel == 1
+    # Incompleta: grado < 6; Completa: grado >= 6
+    mask_primaria = nivel == 1
+    result.loc[mask_primaria & (grado < 6)] = 2.0  # primaria incompleta
+    result.loc[mask_primaria & (grado >= 6)] = 3.0  # primaria completa
+    result.loc[mask_primaria & grado.isna()] = 2.5  # unknown grado -> midpoint
+
+    # Secundaria: nivel == 2
+    result.loc[nivel == 2] = 4.0
+
+    # Preparatoria / bachillerato: nivel == 3
+    result.loc[nivel == 3] = 5.0
+
+    # Profesional / universidad+: nivel >= 4
+    result.loc[nivel >= 4] = 6.0
+
+    return result
+
+
+def _compute_ireh_o(df: pd.DataFrame, out: pd.DataFrame) -> None:
+    """Compute IREH-O (wealth index) using MCA a la CEEY.
+
+    Replicates the CEEY's Informe de Movilidad Social methodology:
+    - 19 binary asset indicators + hacinamiento binary
+    - MCA with Burt method, per cohort
+    - First dimension score, sign-flipped so higher = wealthier
+
+    Falls back to simple count index if MCA dependencies unavailable
+    or sample too small per cohort.
+    """
+    # Define the 19 IREH-O items (exact CEEY specification)
+    ireh_items = {
+        "ac_or1": "p31a",    # estufa
+        "ac_or2": "p32a",    # otra vivienda
+        "ac_or3": "p31b",    # lavadora
+        "ac_or4": "p31h",    # TV cable
+        "ac_or5": "p31c",    # refrigerador
+        "ac_or6": "p26a",    # agua
+        "ac_or7": "p31e",    # TV
+        "ac_or8": "p31d",    # telefono
+        "ac_or9": "p31k",    # computadora
+        "ac_or10": "p26b",   # electricidad
+        "ac_or11": "p31m",   # VHS/DVD
+        "ac_or12": "p31i",   # microondas
+        "ac_or13": "p32b",   # local comercial
+        "ac_or14": "p31g",   # aspiradora
+        "ac_or15": "p30",    # auto (binarized: >=1)
+        "ac_or16": "p26d",   # boiler
+        "ac_or17": ["p32e", "p32k", "p32l"],  # compound: bank account
+        "ac_or18": ["p32f", "p32g"],           # compound: credit card
+        "ac_or19": "p26e",   # servicio domestico
+    }
+
+    # Build binary indicator matrix
+    indicators = pd.DataFrame(index=df.index)
+    for name, src in ireh_items.items():
+        if isinstance(src, list):
+            # Compound: 1 if any component >= 1
+            cols_found = [c for c in src if c in df.columns]
+            if cols_found:
+                vals = pd.DataFrame({
+                    c: pd.to_numeric(df[c], errors="coerce").ge(1).astype(float)
+                    for c in cols_found
+                })
+                indicators[name] = vals.max(axis=1)
+                # NaN only if ALL components are NaN
+                all_na = pd.DataFrame({
+                    c: pd.to_numeric(df[c], errors="coerce").isna()
+                    for c in cols_found
+                }).all(axis=1)
+                indicators.loc[all_na, name] = np.nan
+            else:
+                indicators[name] = np.nan
+        else:
+            if src in df.columns:
+                val = pd.to_numeric(df[src], errors="coerce")
+                indicators[name] = val.ge(1).astype(float)
+                indicators.loc[val.isna(), name] = np.nan
+            else:
+                indicators[name] = np.nan
+
+    # Add hacinamiento binary: 1 if p22/p23 <= 2.5
+    if "p22" in df.columns and "p23" in df.columns:
+        hh_size = pd.to_numeric(df["p22"], errors="coerce")
+        rooms = pd.to_numeric(df["p23"], errors="coerce")
+        hacina = hh_size / rooms.replace(0, np.nan)
+        indicators["hac_or"] = (hacina <= 2.5).astype(float)
+        indicators.loc[hacina.isna(), "hac_or"] = np.nan
+    else:
+        indicators["hac_or"] = np.nan
+
+    # Drop columns that are entirely NaN
+    valid_cols = [c for c in indicators.columns if indicators[c].notna().any()]
+    if len(valid_cols) < 3:
+        logger.warning("  IREH-O: too few valid indicators, falling back to count")
+        out["wealth_index_origin"] = indicators[valid_cols].sum(axis=1, min_count=1)
+        return
+
+    indicators = indicators[valid_cols]
+    n_items = len(valid_cols)
+
+    # Try MCA per cohort
+    try:
+        from prince import MCA
+        has_mca = True
+    except ImportError:
+        has_mca = False
+        logger.warning("  IREH-O: prince not installed, falling back to count index. "
+                       "Install with: pip install prince")
+
+    if not has_mca:
+        out["wealth_index_origin"] = indicators.sum(axis=1, min_count=1)
+        logger.info(f"  Built IREH-O (count fallback) from {n_items} items")
+        return
+
+    # Determine cohorts from age
+    if "edad" in df.columns:
+        age = pd.to_numeric(df["edad"], errors="coerce")
+        cohort = pd.cut(age, bins=[24, 34, 44, 54, 64, 100],
+                        labels=[1, 2, 3, 4, 5], right=True)
+    elif "age" in out.columns:
+        cohort = pd.cut(out["age"], bins=[24, 34, 44, 54, 64, 100],
+                        labels=[1, 2, 3, 4, 5], right=True)
+    else:
+        # No cohort info -> single MCA
+        cohort = pd.Series(1, index=df.index)
+
+    # MCA per cohort
+    scores = pd.Series(np.nan, index=df.index, dtype=float)
+    for c_val in cohort.dropna().unique():
+        mask = cohort == c_val
+        sub = indicators.loc[mask].dropna()
+        if len(sub) < 30:
+            # Too few obs for MCA, use count
+            scores.loc[sub.index] = sub.sum(axis=1)
+            continue
+
+        # MCA requires categorical input
+        sub_cat = sub.astype(int).astype(str)
+        try:
+            mca = MCA(n_components=1)
+            mca.fit(sub_cat)
+            dim1 = mca.row_coordinates(sub_cat).iloc[:, 0]
+
+            # Sign flip: higher count of assets should = higher score
+            asset_count = sub.sum(axis=1)
+            if dim1.corr(asset_count) < 0:
+                dim1 = -dim1
+
+            scores.loc[sub.index] = dim1.values
+        except Exception as e:
+            logger.warning(f"  IREH-O MCA failed for cohort {c_val}: {e}, using count")
+            scores.loc[sub.index] = sub.sum(axis=1)
+
+    out["wealth_index_origin"] = scores
+    logger.info(f"  Built IREH-O (MCA) from {n_items} items across "
+                f"{cohort.nunique()} cohorts")
+
+
+def _build_index(df: pd.DataFrame, out: pd.DataFrame,
+                 dst: str, src_cols: list[str]) -> None:
+    """Build a simple additive index from ordinal columns.
+
+    Each column is standardized to 0-1 range before summing.
+    """
+    found = [c for c in src_cols if c in df.columns]
+    if not found:
+        logger.warning(f"  No columns found for {dst}")
+        return
+    parts = []
+    for c in found:
+        vals = pd.to_numeric(df[c], errors="coerce")
+        vmin, vmax = vals.min(), vals.max()
+        if vmax > vmin:
+            parts.append((vals - vmin) / (vmax - vmin))
+        else:
+            parts.append(vals * 0.0)
+    combined = pd.concat(parts, axis=1)
+    out[dst] = combined.sum(axis=1, min_count=1)
+    logger.info(f"  Built index: {dst} from {len(found)} cols")
+
+
 def construct_analytical_variables(df: pd.DataFrame) -> pd.DataFrame:
     """Construct standardized analytical variables from raw ESRU-EMOVI 2023 columns.
 
@@ -112,86 +388,147 @@ def construct_analytical_variables(df: pd.DataFrame) -> pd.DataFrame:
         logger.warning("  p101 not found in raw data")
 
     # === Circumstance variables ===
-    # educp: Father's education (categorical)
-    if "educp" in df.columns:
-        out["father_education"] = df["educp"].copy()
-        logger.info(f"  Mapped: educp -> father_education ({df['educp'].nunique()} categories)")
-    else:
-        logger.warning("  educp not found in raw data")
 
-    # educm: Mother's education (categorical)
-    if "educm" in df.columns:
-        out["mother_education"] = df["educm"].copy()
-        logger.info(f"  Mapped: educm -> mother_education ({df['educm'].nunique()} categories)")
-    else:
-        logger.warning("  educm not found in raw data")
+    # -- Parental education (4-category) --
+    _map_categorical(df, out, "educp", "father_education")
+    _map_categorical(df, out, "educm", "mother_education")
+    _map_binary(df, out, "p44a", "father_literacy")
+    _map_binary(df, out, "p44b", "mother_literacy")
 
-    # clasep: Father's occupational class (categorical)
-    if "clasep" in df.columns:
-        out["father_occupation"] = df["clasep"].copy()
-        logger.info(f"  Mapped: clasep -> father_occupation ({df['clasep'].nunique()} categories)")
+    # -- Parental education (6-category CEEY scale) --
+    out["father_education_6"] = _build_education_6(df, "p43", "p44")
+    if out["father_education_6"].notna().any():
+        logger.info(f"  Built: father_education_6 (6 cat, "
+                    f"{out['father_education_6'].notna().sum()} valid)")
     else:
-        logger.warning("  clasep not found in raw data")
+        logger.warning("  father_education_6: p43 not found")
 
-    # p110: Ethnic self-identification (categorical, 5 categories)
-    if "p110" in df.columns:
-        out["ethnicity"] = df["p110"].copy()
-        logger.info(f"  Mapped: p110 -> ethnicity ({df['p110'].nunique()} categories)")
+    out["mother_education_6"] = _build_education_6(df, "p43m", "p44m")
+    if out["mother_education_6"].notna().any():
+        logger.info(f"  Built: mother_education_6 (6 cat, "
+                    f"{out['mother_education_6'].notna().sum()} valid)")
     else:
-        logger.warning("  p110 not found in raw data")
+        logger.warning("  mother_education_6: p43m not found")
 
-    # p111: Indigenous language speaker (binary)
-    if "p111" in df.columns:
-        out["indigenous_language"] = pd.to_numeric(df["p111"], errors="coerce")
-        logger.info(f"  Mapped: p111 -> indigenous_language")
-    else:
-        logger.warning("  p111 not found in raw data")
+    # max_parent_education: max of father and mother (CEEY primary variable)
+    out["max_parent_education"] = pd.DataFrame({
+        "f": out.get("father_education_6", pd.Series(dtype=float)),
+        "m": out.get("mother_education_6", pd.Series(dtype=float)),
+    }).max(axis=1)
+    if out["max_parent_education"].notna().any():
+        logger.info(f"  Built: max_parent_education (max of 6-cat parents)")
 
-    # p112: Skin tone self-report (letters A-K -> numeric 1-11)
+    # -- Parental occupation --
+    _map_categorical(df, out, "clasep", "father_occupation")
+    _map_categorical(df, out, "clasem", "mother_occupation")
+
+    # -- Ethnicity & phenotype --
+    _map_categorical(df, out, "p110", "ethnicity")
+    _map_binary(df, out, "p111", "indigenous_language")
+
     if "p112" in df.columns:
         out["skin_tone"] = df["p112"].apply(_skin_tone_letter_to_num)
-        n_valid = out["skin_tone"].notna().sum()
-        logger.info(f"  Mapped: p112 -> skin_tone (letters->numeric, {n_valid} valid)")
+        logger.info(f"  Mapped: p112 -> skin_tone ({out['skin_tone'].notna().sum()} valid)")
     else:
-        logger.warning("  p112 not found in raw data")
+        logger.warning("  p112 not found")
 
-    # p113dL: Skin tone CIELab L* from colorimeter (continuous)
-    if "p113dL" in df.columns:
-        out["skin_tone_cielab"] = pd.to_numeric(df["p113dL"], errors="coerce")
-        logger.info(f"  Mapped: p113dL -> skin_tone_cielab")
-    elif "p113dl" in df.columns:
-        out["skin_tone_cielab"] = pd.to_numeric(df["p113dl"], errors="coerce")
-        logger.info(f"  Mapped: p113dl -> skin_tone_cielab")
+    for col_name in ("p113dL", "p113dl"):
+        if col_name in df.columns:
+            out["skin_tone_cielab"] = pd.to_numeric(df[col_name], errors="coerce")
+            logger.info(f"  Mapped: {col_name} -> skin_tone_cielab")
+            break
     else:
-        logger.warning("  p113dL not found in raw data")
+        logger.warning("  p113dL not found")
 
-    # region_14: Region where lived at age 14 (categorical, 5 regions)
+    # -- Geography at 14 --
+    # If region_14 exists in raw data, use it; otherwise derive from state (p19)
     if "region_14" in df.columns:
-        out["region_14"] = df["region_14"].copy()
-        logger.info(f"  Mapped: region_14 -> region_14 ({df['region_14'].nunique()} regions)")
+        _map_categorical(df, out, "region_14", "region_14")
+    elif "p19" in df.columns:
+        state = pd.to_numeric(df["p19"], errors="coerce")
+        out["region_14"] = state.map(CEEY_STATE_TO_REGION).astype(float)
+        logger.info(f"  Derived: region_14 from p19 using CEEY mapping "
+                    f"({out['region_14'].notna().sum()} valid)")
     else:
-        logger.warning("  region_14 not found in raw data")
+        logger.warning("  region_14 and p19 both not found")
 
-    # p21: Urbanity at age 14 -> binarize to rural_14
-    # Original has 5 levels; binarize: rural/semi-rural vs urban
+    _map_categorical(df, out, "p19", "state_14")
+
     if "p21" in df.columns:
         p21 = pd.to_numeric(df["p21"], errors="coerce")
-        # Typical coding: 1=rural, 2=semi-rural, 3=semi-urban, 4=urban, 5=very urban
-        # Binarize: 1-2 = rural (1), 3-5 = urban (0)
         out["rural_14"] = (p21 <= 2).astype(float)
         out.loc[p21.isna(), "rural_14"] = np.nan
-        logger.info(f"  Mapped: p21 -> rural_14 (binarized)")
+        logger.info("  Mapped: p21 -> rural_14 (binarized)")
     else:
-        logger.warning("  p21 not found in raw data")
+        logger.warning("  p21 not found")
 
-    # sexo: Gender (1=Male, 2=Female -> 1=Male, 0=Female)
+    # -- Gender --
     if "sexo" in df.columns:
         sexo = pd.to_numeric(df["sexo"], errors="coerce")
         out["gender"] = (sexo == 1).astype(float)
         out.loc[sexo.isna(), "gender"] = np.nan
-        logger.info(f"  Mapped: sexo -> gender (1=male, 0=female)")
+        logger.info("  Mapped: sexo -> gender (1=male, 0=female)")
     else:
-        logger.warning("  sexo not found in raw data")
+        logger.warning("  sexo not found")
+
+    # -- Family structure at 14 --
+    _map_numeric(df, out, "p22", "hh_size_14")
+    _map_numeric(df, out, "p57", "n_siblings")
+    _map_numeric(df, out, "p58", "birth_order")
+    _map_categorical(df, out, "p39", "lived_with_14")
+    _map_categorical(df, out, "p40", "breadwinner_14")
+
+    # -- Material conditions at 14 (composite indices) --
+    _map_numeric(df, out, "p23", "dwelling_rooms_14")
+
+    # Dwelling quality index: floor material (p25) + dwelling type (p28)
+    # Higher = better quality. Simple additive index.
+    _build_index(df, out, "dwelling_quality_14", ["p25", "p28"])
+
+    # Dwelling amenities: p26a-e (water, electricity, bathroom, boiler, domestic service)
+    _build_count_index(df, out, "dwelling_amenities_14",
+                       ["p26a", "p26b", "p26c", "p26d", "p26e"])
+
+    # Dwelling features: p29a-g (living room, garden, patio, laundry, TV room, garage, kitchen)
+    _build_count_index(df, out, "dwelling_features_14",
+                       ["p29a", "p29b", "p29c", "p29d", "p29e", "p29f", "p29g"])
+
+    _map_numeric(df, out, "p30", "n_automobiles_14")
+
+    # Household assets: p31a-o (15 items: stove, washer, fridge, phone, TV, ...)
+    _build_count_index(df, out, "hh_assets_14",
+                       [f"p31{c}" for c in "abcdefghijklmno"])
+
+    # Financial assets: p32a-o (15 items: other dwelling, land, savings, ...)
+    _build_count_index(df, out, "financial_assets_14",
+                       [f"p32{c}" for c in "abcdefghijklmno"])
+
+    # Neighborhood quality: p33a-i (9 items: lighting, schools, clinics, ...)
+    _build_count_index(df, out, "neighborhood_quality_14",
+                       [f"p33{c}" for c in "abcdefghi"])
+
+    # Floor material at 14: p25 (CEEY: tierra=0, otro=1)
+    if "p25" in df.columns:
+        p25 = pd.to_numeric(df["p25"], errors="coerce")
+        # CEEY coding: recode (2 3=1)(1=0) -> 1=tierra -> 0, 2/3=otro -> 1
+        out["floor_material_14"] = p25.map({1: 0.0, 2: 1.0, 3: 1.0})
+        out.loc[p25.isna(), "floor_material_14"] = np.nan
+        logger.info(f"  Mapped: p25 -> floor_material_14 (binary: tierra=0, otro=1)")
+    else:
+        logger.warning("  p25 not found for floor_material_14")
+
+    # Overcrowding ratio at 14: p22/p23 (hacinamiento, continuous)
+    if "p22" in df.columns and "p23" in df.columns:
+        hh_size = pd.to_numeric(df["p22"], errors="coerce")
+        rooms = pd.to_numeric(df["p23"], errors="coerce")
+        out["overcrowding_14"] = hh_size / rooms.replace(0, np.nan)
+        logger.info(f"  Built: overcrowding_14 = p22/p23 "
+                    f"(mean={out['overcrowding_14'].mean():.2f})")
+    else:
+        logger.warning("  p22/p23 not found for overcrowding_14")
+
+    # IREH-O: CEEY official wealth index (MCA-based)
+    _compute_ireh_o(df, out)
 
     # === Demographics for filtering ===
     # edad: Age
@@ -218,8 +555,13 @@ def construct_analytical_variables(df: pd.DataFrame) -> pd.DataFrame:
         logger.warning("  factor not found in raw data -- unweighted analysis")
 
     # === Convert categorical columns to numeric codes for ML methods ===
-    for col in ["father_education", "mother_education", "father_occupation",
-                "ethnicity", "region_14"]:
+    cat_cols = [
+        "father_education", "mother_education", "father_occupation",
+        "mother_occupation", "ethnicity", "region_14", "state_14",
+        "lived_with_14", "breadwinner_14",
+        "father_education_6", "mother_education_6", "max_parent_education",
+    ]
+    for col in cat_cols:
         if col in out.columns and out[col].dtype == "category":
             out[col] = out[col].cat.codes.replace(-1, np.nan).astype(float)
         elif col in out.columns and out[col].dtype == object:
@@ -238,11 +580,8 @@ def generate_codebook(df: pd.DataFrame) -> dict:
         "variables": {},
     }
 
-    circumstance_vars = {
-        "father_education", "mother_education", "father_occupation",
-        "ethnicity", "indigenous_language", "skin_tone", "skin_tone_cielab",
-        "region_14", "rural_14", "gender",
-    }
+    from core.types import Circumstance
+    circumstance_vars = {c.value for c in Circumstance}
     income_vars = {"hh_pc_imputed", "hh_total_reported"}
 
     for col in df.columns:
@@ -288,58 +627,119 @@ def create_synthetic_data(n: int = 2000, seed: int = 42) -> pd.DataFrame:
 
     df = pd.DataFrame()
 
-    # Circumstances (matching real ESRU-EMOVI categories)
-    # Father's education: 4 categories (0=primaria o menos, 1=secundaria, 2=media superior, 3=profesional)
+    # === Parental education (4-cat) ===
     df["father_education"] = rng.choice([0, 1, 2, 3], size=n, p=[0.35, 0.25, 0.22, 0.18]).astype(float)
-    # Mother's education: same 4 categories
     df["mother_education"] = rng.choice([0, 1, 2, 3], size=n, p=[0.40, 0.25, 0.20, 0.15]).astype(float)
-    # Father's occupation: 6 categories
+    # Literacy correlated with education (higher edu -> always literate)
+    df["father_literacy"] = (rng.random(n) < (0.7 + 0.1 * df["father_education"])).astype(float)
+    df["mother_literacy"] = (rng.random(n) < (0.65 + 0.1 * df["mother_education"])).astype(float)
+
+    # === Parental education (6-cat CEEY scale) ===
+    # Map 4-cat to 6-cat with some noise to simulate finer granularity
+    _edu_4_to_6 = {0: 1.0, 1: 2.5, 2: 4.0, 3: 5.5}
+    df["father_education_6"] = df["father_education"].map(_edu_4_to_6)
+    df["father_education_6"] = (df["father_education_6"] + rng.choice([-0.5, 0, 0.5], size=n)).clip(1, 6).round()
+    df["mother_education_6"] = df["mother_education"].map(_edu_4_to_6)
+    df["mother_education_6"] = (df["mother_education_6"] + rng.choice([-0.5, 0, 0.5], size=n)).clip(1, 6).round()
+    df["max_parent_education"] = np.maximum(df["father_education_6"], df["mother_education_6"])
+
+    # === Parental occupation ===
     df["father_occupation"] = rng.choice([0, 1, 2, 3, 4, 5], size=n,
                                           p=[0.20, 0.20, 0.18, 0.17, 0.15, 0.10]).astype(float)
-    # Ethnicity: 5 categories
+    df["mother_occupation"] = rng.choice([0, 1, 2, 3, 4, 5], size=n,
+                                          p=[0.30, 0.20, 0.18, 0.15, 0.10, 0.07]).astype(float)
+
+    # === Ethnicity & phenotype ===
     df["ethnicity"] = rng.choice([0, 1, 2, 3, 4], size=n, p=[0.40, 0.25, 0.15, 0.12, 0.08]).astype(float)
-    # Indigenous language: binary
     df["indigenous_language"] = rng.choice([0.0, 1.0], size=n, p=[0.90, 0.10])
-    # Skin tone: 1-11 scale (from letters A-K)
     df["skin_tone"] = rng.choice(np.arange(1, 12, dtype=float), size=n)
-    # Skin tone CIELab: continuous ~40-80
     df["skin_tone_cielab"] = rng.normal(55, 10, size=n).clip(30, 85)
-    # Region at 14: 5 regions
+
+    # === Geography at 14 ===
     df["region_14"] = rng.choice([0, 1, 2, 3, 4], size=n).astype(float)
-    # Rural at 14: binary
+    df["state_14"] = rng.choice(np.arange(32, dtype=float), size=n)
     df["rural_14"] = rng.choice([0.0, 1.0], size=n, p=[0.55, 0.45])
-    # Gender: binary (1=male, 0=female)
+
+    # === Gender ===
     df["gender"] = rng.choice([0.0, 1.0], size=n, p=[0.50, 0.50])
 
-    # Demographics
+    # === Family structure at 14 ===
+    df["hh_size_14"] = rng.choice(np.arange(1, 13, dtype=float), size=n,
+                                   p=[0.02, 0.05, 0.10, 0.20, 0.20, 0.15, 0.10, 0.07, 0.05, 0.03, 0.02, 0.01])
+    df["n_siblings"] = rng.poisson(3, size=n).clip(0, 15).astype(float)
+    df["birth_order"] = rng.choice(np.arange(1, 8, dtype=float), size=n,
+                                    p=[0.25, 0.25, 0.20, 0.13, 0.08, 0.05, 0.04])
+    df["lived_with_14"] = rng.choice([0, 1, 2, 3], size=n, p=[0.70, 0.15, 0.10, 0.05]).astype(float)
+    df["breadwinner_14"] = rng.choice([0, 1, 2, 3], size=n, p=[0.65, 0.20, 0.10, 0.05]).astype(float)
+
+    # === Material conditions at 14 (composite indices) ===
+    # Wealth factor: correlated with parental education/occupation
+    wealth = (df["father_education"] + df["mother_education"] +
+              df["father_occupation"] * 0.5 + rng.normal(0, 2, size=n))
+    wealth_norm = (wealth - wealth.min()) / (wealth.max() - wealth.min())
+
+    df["dwelling_rooms_14"] = rng.poisson(3 + 2 * wealth_norm).clip(1, 15).astype(float)
+    df["dwelling_quality_14"] = (wealth_norm * 1.5 + rng.normal(0, 0.3, size=n)).clip(0, 2).round(2)
+    df["dwelling_amenities_14"] = rng.binomial(5, 0.3 + 0.5 * wealth_norm).astype(float)
+    df["dwelling_features_14"] = rng.binomial(7, 0.2 + 0.5 * wealth_norm).astype(float)
+    df["n_automobiles_14"] = rng.poisson(0.3 + 0.7 * wealth_norm).clip(0, 5).astype(float)
+    df["hh_assets_14"] = rng.binomial(15, 0.2 + 0.5 * wealth_norm).astype(float)
+    df["financial_assets_14"] = rng.binomial(15, 0.05 + 0.3 * wealth_norm).astype(float)
+    df["neighborhood_quality_14"] = rng.binomial(9, 0.3 + 0.4 * wealth_norm).astype(float)
+    df["floor_material_14"] = (rng.random(n) < (0.6 + 0.35 * wealth_norm)).astype(float)
+    df["overcrowding_14"] = (df["hh_size_14"] / df["dwelling_rooms_14"].replace(0, 1)).round(2)
+
+    # IREH-O: MCA score approximation (in synthetic, use weighted sum)
+    ireh_items = np.column_stack([
+        df["hh_assets_14"] / 15,
+        df["financial_assets_14"] / 15,
+        df["dwelling_amenities_14"] / 5,
+        df["dwelling_features_14"] / 7,
+        df["floor_material_14"],
+        (df["overcrowding_14"] <= 2.5).astype(float),
+        (df["n_automobiles_14"] >= 1).astype(float),
+    ])
+    df["wealth_index_origin"] = ireh_items.mean(axis=1) * 10 + rng.normal(0, 0.5, size=n)
+
+    # === Demographics ===
     df["age"] = rng.integers(25, 65, size=n).astype(float)
     df["urban"] = rng.choice([0.0, 1.0], size=n, p=[0.30, 0.70])
 
-    # Income: influenced by circumstances (what IOp measures)
+    # === Income: influenced by circumstances (what IOp measures) ===
     log_income = (
-        8.5  # base log income
-        + 0.20 * df["father_education"]
-        + 0.15 * df["mother_education"]
-        + 0.10 * df["father_occupation"]
-        - 0.08 * df["ethnicity"]
-        - 0.15 * df["indigenous_language"]
-        - 0.02 * df["skin_tone"]
-        + 0.05 * df["gender"]
-        + 0.10 * df["urban"]
-        - 0.08 * df["rural_14"]
+        8.5
+        + 0.15 * df["father_education"]
+        + 0.12 * df["mother_education"]
+        + 0.08 * df["father_occupation"]
+        + 0.05 * df["mother_occupation"]
+        - 0.06 * df["ethnicity"]
+        - 0.12 * df["indigenous_language"]
+        - 0.015 * df["skin_tone"]
+        + 0.04 * df["gender"]
+        + 0.08 * df["urban"]
+        - 0.06 * df["rural_14"]
         + 0.01 * df["age"]
-        + rng.normal(0, 0.6, size=n)  # effort + luck
+        # New variables: material conditions have additional explanatory power
+        + 0.02 * df["hh_assets_14"]
+        + 0.03 * df["financial_assets_14"]
+        + 0.01 * df["dwelling_amenities_14"]
+        + 0.01 * df["neighborhood_quality_14"]
+        - 0.02 * df["n_siblings"]
+        + 0.04 * df["max_parent_education"]
+        + 0.03 * df["floor_material_14"]
+        - 0.03 * df["overcrowding_14"].clip(0, 10)
+        + 0.05 * df["wealth_index_origin"] / 10
+        # Interaction: father_education * wealth amplifies advantage
+        + 0.01 * df["father_education"] * df["hh_assets_14"]
+        + rng.normal(0, 0.55, size=n)  # effort + luck
     )
 
-    # hh_pc_imputed: primary income variable (no missing, all positive)
     df["hh_pc_imputed"] = np.exp(log_income) * rng.uniform(0.8, 1.2, size=n)
 
-    # hh_total_reported: ~25% missing
     df["hh_total_reported"] = df["hh_pc_imputed"] * rng.uniform(2.0, 5.0, size=n)
     missing_mask = rng.random(size=n) < 0.25
     df.loc[missing_mask, "hh_total_reported"] = np.nan
 
-    # Survey weight
     df["weight"] = rng.uniform(0.5, 3.0, size=n)
 
     return df

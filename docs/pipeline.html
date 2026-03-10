@@ -395,7 +395,7 @@
       <div class="arch-box output">
         <div class="label">Data</div>
         <div class="name">emovi_analytical.parquet</div>
-        <div style="font-size:0.75rem;color:var(--text-muted)">17,843 obs &times; 15 vars</div>
+        <div style="font-size:0.75rem;color:var(--text-muted)">17,843 obs &times; 38 vars</div>
       </div>
       <div class="arch-arrow">&rarr;</div>
       <div class="arch-box agent">
@@ -411,6 +411,12 @@
       </div>
     </div>
     <div class="arch-flow">
+      <div class="arch-box fixed">
+        <div class="label">Autonomous Loop</div>
+        <div class="name">autoresearch.py</div>
+        <div style="font-size:0.75rem;color:var(--text-muted)">Systematic &rarr; Hypothesis &rarr; Robustness</div>
+      </div>
+      <div class="arch-arrow">&rarr;</div>
       <div class="arch-box output">
         <div class="label">Append-only</div>
         <div class="name">experiment_log.jsonl</div>
@@ -441,8 +447,8 @@
     <tbody>
       <tr>
         <td>Circumstances</td>
-        <td>10 variables</td>
-        <td><code>father_education</code>, <code>ethnicity</code>, <code>skin_tone</code>, <code>region_14</code>, ...</td>
+        <td>33 variables</td>
+        <td>Parental education (4-cat &amp; 6-cat), occupation, ethnicity, skin tone, geography, family structure, material conditions, IREH-O wealth index</td>
       </tr>
       <tr>
         <td>Income</td>
@@ -517,16 +523,54 @@
   <h3>1. Type System &mdash; <code>core/types.py</code></h3>
   <p>Central enum definitions ensuring type safety across the pipeline:</p>
   <pre><code><span class="kw">class</span> <span class="cls">Circumstance</span>(str, Enum):
-    FATHER_EDUCATION = <span class="str">"father_education"</span>   <span class="cm"># educp (4 categories)</span>
-    MOTHER_EDUCATION = <span class="str">"mother_education"</span>   <span class="cm"># educm (4 categories)</span>
-    FATHER_OCCUPATION = <span class="str">"father_occupation"</span> <span class="cm"># clasep (6 categories)</span>
-    ETHNICITY = <span class="str">"ethnicity"</span>               <span class="cm"># p110 (5 categories)</span>
-    INDIGENOUS_LANGUAGE = <span class="str">"indigenous_language"</span>  <span class="cm"># p111 (binary)</span>
-    SKIN_TONE = <span class="str">"skin_tone"</span>               <span class="cm"># p112 (A-K -> 1-11)</span>
-    SKIN_TONE_CIELAB = <span class="str">"skin_tone_cielab"</span>   <span class="cm"># p113dL (continuous)</span>
-    REGION_14 = <span class="str">"region_14"</span>               <span class="cm"># region at age 14</span>
-    RURAL_14 = <span class="str">"rural_14"</span>                 <span class="cm"># rural at age 14</span>
-    GENDER = <span class="str">"gender"</span>                     <span class="cm"># sexo (0=F, 1=M)</span></code></pre>
+    <span class="cm"># === Parental education (4-category) ===</span>
+    FATHER_EDUCATION = <span class="str">"father_education"</span>       <span class="cm"># educp (4 cat)</span>
+    MOTHER_EDUCATION = <span class="str">"mother_education"</span>       <span class="cm"># educm (4 cat)</span>
+    FATHER_LITERACY = <span class="str">"father_literacy"</span>         <span class="cm"># p44a (binary)</span>
+    MOTHER_LITERACY = <span class="str">"mother_literacy"</span>         <span class="cm"># p44b (binary)</span>
+
+    <span class="cm"># === Parental education (6-category CEEY scale) ===</span>
+    FATHER_EDUCATION_6 = <span class="str">"father_education_6"</span>   <span class="cm"># p43+p44 (6 cat)</span>
+    MOTHER_EDUCATION_6 = <span class="str">"mother_education_6"</span>   <span class="cm"># p43m+p44m (6 cat)</span>
+    MAX_PARENT_EDUCATION = <span class="str">"max_parent_education"</span> <span class="cm"># max(father, mother)</span>
+
+    <span class="cm"># === Parental occupation ===</span>
+    FATHER_OCCUPATION = <span class="str">"father_occupation"</span>     <span class="cm"># clasep (6 cat)</span>
+    MOTHER_OCCUPATION = <span class="str">"mother_occupation"</span>     <span class="cm"># clasem (6 cat)</span>
+
+    <span class="cm"># === Ethnicity &amp; phenotype ===</span>
+    ETHNICITY = <span class="str">"ethnicity"</span>                   <span class="cm"># p110 (5 cat)</span>
+    INDIGENOUS_LANGUAGE = <span class="str">"indigenous_language"</span> <span class="cm"># p111 (binary)</span>
+    SKIN_TONE = <span class="str">"skin_tone"</span>                   <span class="cm"># p112 (1-11)</span>
+    SKIN_TONE_CIELAB = <span class="str">"skin_tone_cielab"</span>       <span class="cm"># CIELab L*</span>
+
+    <span class="cm"># === Geography &amp; gender ===</span>
+    REGION_14 = <span class="str">"region_14"</span>     <span class="cm"># 5 CEEY regions</span>
+    STATE_14 = <span class="str">"state_14"</span>       <span class="cm"># 32 states</span>
+    RURAL_14 = <span class="str">"rural_14"</span>       <span class="cm"># binary</span>
+    GENDER = <span class="str">"gender"</span>           <span class="cm"># sexo</span>
+
+    <span class="cm"># === Family structure at 14 ===</span>
+    HH_SIZE_14 = <span class="str">"hh_size_14"</span>             <span class="cm"># household size</span>
+    N_SIBLINGS = <span class="str">"n_siblings"</span>             <span class="cm"># count</span>
+    BIRTH_ORDER = <span class="str">"birth_order"</span>           <span class="cm"># ordinal</span>
+    LIVED_WITH_14 = <span class="str">"lived_with_14"</span>       <span class="cm"># categorical</span>
+    BREADWINNER_14 = <span class="str">"breadwinner_14"</span>     <span class="cm"># categorical</span>
+
+    <span class="cm"># === Material conditions at 14 ===</span>
+    DWELLING_ROOMS_14 = <span class="str">"dwelling_rooms_14"</span>             <span class="cm"># rooms count</span>
+    DWELLING_QUALITY_14 = <span class="str">"dwelling_quality_14"</span>         <span class="cm"># floor+type index</span>
+    DWELLING_AMENITIES_14 = <span class="str">"dwelling_amenities_14"</span>     <span class="cm"># 0-5 count</span>
+    DWELLING_FEATURES_14 = <span class="str">"dwelling_features_14"</span>       <span class="cm"># 0-7 count</span>
+    N_AUTOMOBILES_14 = <span class="str">"n_automobiles_14"</span>             <span class="cm"># count</span>
+    HH_ASSETS_14 = <span class="str">"hh_assets_14"</span>                     <span class="cm"># 0-15 count</span>
+    FINANCIAL_ASSETS_14 = <span class="str">"financial_assets_14"</span>         <span class="cm"># 0-15 count</span>
+    NEIGHBORHOOD_QUALITY_14 = <span class="str">"neighborhood_quality_14"</span> <span class="cm"># 0-9 count</span>
+    FLOOR_MATERIAL_14 = <span class="str">"floor_material_14"</span>           <span class="cm"># binary</span>
+    OVERCROWDING_14 = <span class="str">"overcrowding_14"</span>               <span class="cm"># ratio</span>
+
+    <span class="cm"># === CEEY official wealth index (MCA-based) ===</span>
+    WEALTH_INDEX_ORIGIN = <span class="str">"wealth_index_origin"</span>         <span class="cm"># IREH-O (MCA)</span></code></pre>
 
   <h3>2. Experiment Specification &mdash; <code>core/specification.py</code></h3>
   <p>
@@ -645,6 +689,40 @@
     <strong>Append-only</strong> JSONL log. Every experiment (success, failure, or invalid) gets recorded
     with its full specification, results, diagnostics, and runtime. A parallel TSV mirror provides
     human-readable access. Results are never deleted or modified.
+  </p>
+
+  <h3>9. Autonomous Exploration &mdash; <code>autoresearch.py</code></h3>
+  <p>
+    Three-phase autonomous loop that explores the specification space without human intervention:
+  </p>
+  <table>
+    <thead>
+      <tr><th>Phase</th><th>Share</th><th>Strategy</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Systematic</td><td>60%</td>
+        <td>Fill coverage gaps across 13 circumstance sets &times; 5 method-decomposition combos &times; 3 measures &times; 2 incomes</td>
+      </tr>
+      <tr>
+        <td>Hypothesis</td><td>30%</td>
+        <td>Auto-detect findings (method divergence, circumstance sensitivity, wide CIs, outliers) and generate targeted follow-up specs</td>
+      </tr>
+      <tr>
+        <td>Robustness</td><td>10%</td>
+        <td>Vary one dimension at a time from top specs to test sensitivity</td>
+      </tr>
+    </tbody>
+  </table>
+  <p style="color:var(--text-muted);font-size:0.85rem;">
+    Run modes: <code>--full</code> (complete loop), <code>--systematic</code>, <code>--findings</code>, <code>--robustness</code>.
+  </p>
+
+  <h3>10. Exploration Strategy &mdash; <code>orchestration/strategy.py</code></h3>
+  <p>
+    Defines 13 core circumstance sets organized from minimal (single variable) to maximal (all 33),
+    including 3 CEEY-aligned sets for direct comparison with Mexico's official mobility reports.
+    The strategy generates batches prioritizing unexplored regions of the specification space.
   </p>
 </section>
 
@@ -766,7 +844,8 @@
     &#9474;&nbsp;&nbsp; &#9492;&#9472;&#9472; <span class="dir">processed/</span> <span class="desc">&mdash; .parquet analytical dataset (gitignored)</span><br>
     &#9500;&#9472;&#9472; <span class="dir">results/</span> <span class="desc">&mdash; Experiment logs + figures + tables</span><br>
     &#9500;&#9472;&#9472; <span class="file agent">analyze.py</span> <span class="desc">&mdash; Agent-editable spec definitions</span><br>
-    &#9500;&#9472;&#9472; <span class="file fixed">prepare.py</span> <span class="desc">&mdash; Data preparation (FIXED)</span><br>
+    &#9500;&#9472;&#9472; <span class="file fixed">autoresearch.py</span> <span class="desc">&mdash; Autonomous exploration loop (systematic + hypothesis + robustness)</span><br>
+    &#9500;&#9472;&#9472; <span class="file fixed">prepare.py</span> <span class="desc">&mdash; Data preparation + CEEY alignment (FIXED)</span><br>
     &#9500;&#9472;&#9472; <span class="file fixed">run_experiment.py</span> <span class="desc">&mdash; Experiment harness (FIXED)</span><br>
     &#9500;&#9472;&#9472; <span class="file">program.md</span> <span class="desc">&mdash; Agent instructions</span><br>
     &#9500;&#9472;&#9472; <span class="file">CLAUDE.md</span> <span class="desc">&mdash; Claude Code project config</span><br>
@@ -789,10 +868,15 @@ python prepare.py --synthetic
 <span class="cm"># Run baseline experiments (3 specs defined in analyze.py)</span>
 python run_experiment.py
 
+<span class="cm"># Run the autonomous exploration loop</span>
+python autoresearch.py --full          <span class="cm"># Full loop: systematic + hypothesis + robustness</span>
+python autoresearch.py --systematic    <span class="cm"># Systematic coverage only</span>
+python autoresearch.py --findings      <span class="cm"># Show findings from completed experiments</span>
+python autoresearch.py --robustness    <span class="cm"># Robustness checks on existing results</span>
+
 <span class="cm"># Run the test suite (44 tests)</span>
 python -m pytest tests/ -v
 
-<span class="cm"># The agent modifies analyze.py to add new specs, then re-runs</span>
 <span class="cm"># Results accumulate in results/experiment_log.jsonl</span></code></pre>
 
   <h3>Data</h3>
@@ -802,6 +886,20 @@ python -m pytest tests/ -v
     <code>python prepare.py</code>. For testing without real data, use <code>python prepare.py --synthetic</code>
     which generates 500 observations with realistic distributions.
   </p>
+
+  <h3>CEEY Alignment</h3>
+  <p>
+    Variable definitions are aligned with the CEEY's official methodology
+    (<em>Informe de Movilidad Social en M&eacute;xico 2025</em>), including:
+  </p>
+  <ul style="margin:0.5rem 0 1rem 1.5rem;color:var(--text)">
+    <li><strong>6-category education scale</strong> &mdash; sin estudios / primaria incompleta / primaria completa / secundaria / preparatoria / profesional (from p43 + p44)</li>
+    <li><strong>MAX_PARENT_EDUCATION</strong> &mdash; max(father, mother) education, CEEY's primary human capital variable</li>
+    <li><strong>IREH-O</strong> &mdash; <em>&Iacute;ndice de Recursos Econ&oacute;micos del Hogar de Origen</em>, a wealth index computed via Multiple Correspondence Analysis (MCA, Burt method) on 19 binary assets + hacinamiento, estimated per cohort</li>
+    <li><strong>CEEY region mapping</strong> &mdash; 5 regions (Norte, Noroccidente, Centro-norte, Centro, Sur) derived from the 32 Mexican states using the exact CEEY classification</li>
+    <li><strong>Hacinamiento</strong> &mdash; overcrowding ratio (household size / rooms)</li>
+    <li><strong>Floor material</strong> &mdash; dirt floor indicator (p25: tierra=0, otro=1)</li>
+  </ul>
 
   <h3>First Results (Real Data)</h3>
   <table>

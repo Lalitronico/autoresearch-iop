@@ -22,7 +22,7 @@ from evaluation.metrics import compute_iop_with_ci, IOpEstimate
 from methods.parametric import estimate_parametric
 from methods.nonparametric import estimate_nonparametric
 from methods.ml_methods import estimate_xgboost, estimate_random_forest
-from orchestration.experiment_log import log_experiment
+from orchestration.experiment_log import log_experiment, get_completed_spec_ids
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
@@ -243,13 +243,20 @@ def run_batch(
     specs: list[ExperimentSpec],
     data_registry: DataRegistry | None = None,
 ) -> list[ExperimentResult]:
-    """Run a batch of experiments sequentially."""
+    """Run a batch of experiments sequentially, skipping already-completed specs."""
     if data_registry is None:
         data_registry = DataRegistry()
 
+    # Skip specs already completed successfully
+    completed = get_completed_spec_ids()
+    pending = [s for s in specs if s.spec_id not in completed]
+    skipped = len(specs) - len(pending)
+    if skipped:
+        logger.info(f"Skipping {skipped} already-completed specs")
+
     results = []
-    for i, spec in enumerate(specs, 1):
-        logger.info(f"--- Experiment {i}/{len(specs)}: {spec} ---")
+    for i, spec in enumerate(pending, 1):
+        logger.info(f"--- Experiment {i}/{len(pending)}: {spec} ---")
         result = run_single_experiment(spec, data_registry)
         results.append(result)
 

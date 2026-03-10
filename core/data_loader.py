@@ -127,15 +127,32 @@ class DataRegistry:
         return filter_fn(df)
 
     def validate_spec(self, spec) -> list[str]:
-        """Validate that a spec's variables exist in the dataset."""
+        """Validate that a spec's variables exist and have sufficient non-NaN data."""
         errors: list[str] = []
+        min_valid = 100  # minimum non-null observations required
+
         iv = IncomeVariable(spec.income_variable)
         base = iv.base_variable
         if base not in self.df.columns:
             errors.append(f"Income variable '{base}' not in dataset")
+        else:
+            n_valid = int(self.df[base].notna().sum())
+            if n_valid < min_valid:
+                errors.append(
+                    f"Income variable '{base}' has only {n_valid} non-null values "
+                    f"(need >= {min_valid})"
+                )
+
         for c in spec.circumstances:
             if c not in self.df.columns:
                 errors.append(f"Circumstance '{c}' not in dataset")
+            else:
+                n_valid = int(self.df[c].notna().sum())
+                if n_valid < min_valid:
+                    errors.append(
+                        f"Circumstance '{c}' has only {n_valid} non-null values "
+                        f"(need >= {min_valid})"
+                    )
         return errors
 
     def get_sample_for_spec(self, spec) -> tuple[pd.Series, pd.DataFrame, pd.Index]:

@@ -6,7 +6,6 @@ and strategic priorities.
 
 from __future__ import annotations
 
-import itertools
 from typing import Any
 
 from core.specification import ExperimentSpec
@@ -18,7 +17,6 @@ from core.types import (
     IncomeVariable,
     SampleFilter,
 )
-from orchestration.coverage_tracker import compute_coverage
 from orchestration.experiment_log import get_completed_spec_ids
 
 
@@ -173,19 +171,18 @@ def generate_systematic_batch(
 ) -> list[ExperimentSpec]:
     """Generate a batch of specs for systematic coverage.
 
-    Prioritizes filling gaps in the specification space.
+    Generates all valid core combinations, filters already-completed ones,
+    and returns up to batch_size specs. Iteration order prioritizes diversity:
+    circ_sets (outer) → method-decomp → measures → incomes (inner),
+    so early batches touch many circumstance sets and methods.
     """
     completed = get_completed_spec_ids()
-    coverage = compute_coverage()
     specs: list[ExperimentSpec] = []
 
-    # Priority 1: Fill missing method-decomposition combinations
-    for method, decomp in VALID_METHOD_DECOMP:
-        if len(specs) >= batch_size:
-            break
-        for circs in CORE_CIRC_SETS[:3]:  # Start with smaller circ sets
+    for circs in CORE_CIRC_SETS:
+        for method, decomp in VALID_METHOD_DECOMP:
             for measure in CORE_MEASURES:
-                for income in CORE_INCOMES[:2]:
+                for income in CORE_INCOMES:
                     spec = ExperimentSpec(
                         circumstances=circs,
                         income_variable=income,
@@ -193,17 +190,13 @@ def generate_systematic_batch(
                         method=method,
                         decomposition_type=decomp,
                         sample_filter=sample_filter,
-                        rationale=f"Systematic coverage: {method}/{decomp}",
+                        rationale=f"Systematic: {method}/{decomp}, {len(circs)} circs",
                     )
                     if spec.is_valid and spec.spec_id not in completed:
                         specs.append(spec)
                         completed.add(spec.spec_id)
                         if len(specs) >= batch_size:
-                            break
-                if len(specs) >= batch_size:
-                    break
-            if len(specs) >= batch_size:
-                break
+                            return specs
 
     return specs
 

@@ -78,7 +78,7 @@ def run_diagnostics(
     if r_squared is not None and cv_r_squared is not None:
         overfit_gap = r_squared - cv_r_squared
         diag.metrics["overfit_gap"] = overfit_gap
-        if overfit_gap > 0.15:
+        if overfit_gap > 0.10:
             diag.add_flag(f"Overfitting detected: R^2={r_squared:.3f} vs CV R^2={cv_r_squared:.3f}")
         elif overfit_gap > 0.05:
             diag.add_warning(f"Possible overfitting: gap={overfit_gap:.3f}")

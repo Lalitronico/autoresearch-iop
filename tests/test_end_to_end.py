@@ -22,33 +22,20 @@ from core.types import (
     IncomeVariable,
     SampleFilter,
 )
-from orchestration.experiment_log import JSONL_PATH, TSV_PATH
-from prepare import create_synthetic_data, generate_codebook
+import orchestration.experiment_log as el
 from run_experiment import run_single_experiment, run_batch, ExperimentResult
 
-
-@pytest.fixture(scope="module")
-def synthetic_data():
-    """Create and save synthetic data for tests."""
-    df = create_synthetic_data(n=500, seed=42)
-    PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
-    output = PROCESSED_DIR / "emovi_analytical.parquet"
-    df.to_parquet(output, index=False)
-    codebook = generate_codebook(df)
-    with open(CODEBOOK_PATH, "w") as f:
-        json.dump(codebook, f, indent=2, default=str)
-    yield df
-    # Cleanup is optional -- data stays for other tests
+# synthetic_data fixture provided by conftest.py
 
 
 @pytest.fixture(autouse=True)
 def clean_logs():
-    """Clean experiment logs before each test."""
-    for path in [JSONL_PATH, TSV_PATH]:
+    """Clean experiment logs before each test (uses isolated paths from conftest)."""
+    for path in [el.JSONL_PATH, el.TSV_PATH]:
         if path.exists():
             path.unlink()
     yield
-    for path in [JSONL_PATH, TSV_PATH]:
+    for path in [el.JSONL_PATH, el.TSV_PATH]:
         if path.exists():
             path.unlink()
 
@@ -131,8 +118,8 @@ class TestEndToEnd:
         assert all(r.status == ExperimentStatus.SUCCESS.value for r in results)
 
         # Verify log file has 3 entries
-        assert JSONL_PATH.exists()
-        with open(JSONL_PATH) as f:
+        assert el.JSONL_PATH.exists()
+        with open(el.JSONL_PATH) as f:
             lines = [l for l in f if l.strip()]
         assert len(lines) == 3
 
@@ -151,7 +138,7 @@ class TestEndToEnd:
         r1 = run_single_experiment(spec, registry)
 
         # Clean logs between runs
-        for p in [JSONL_PATH, TSV_PATH]:
+        for p in [el.JSONL_PATH, el.TSV_PATH]:
             if p.exists():
                 p.unlink()
 
@@ -183,7 +170,7 @@ class TestEndToEnd:
         registry = DataRegistry()
         r_all = run_single_experiment(spec_all, registry)
 
-        for p in [JSONL_PATH, TSV_PATH]:
+        for p in [el.JSONL_PATH, el.TSV_PATH]:
             if p.exists():
                 p.unlink()
 

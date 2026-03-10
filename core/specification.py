@@ -63,6 +63,18 @@ class ExperimentSpec:
     def method_params_dict(self) -> dict[str, Any]:
         return dict(self.method_params)
 
+    @staticmethod
+    def recommended_bootstrap_n(method: str) -> int:
+        """Recommended bootstrap iterations by method runtime.
+
+        OLS/DT are fast (~1-2s/spec), so 200 iterations is fine.
+        XGBoost/RF are expensive (~3-10min/spec), so fewer iterations.
+        """
+        fast_methods = {EstimationMethod.OLS.value, EstimationMethod.DECISION_TREE.value}
+        if method in fast_methods:
+            return 200
+        return 50
+
     def validate(self) -> list[str]:
         """Validate domain rules. Returns list of error messages (empty = valid)."""
         errors: list[str] = []

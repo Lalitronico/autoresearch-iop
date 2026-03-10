@@ -187,7 +187,10 @@ def plot_specification_curve(
         output_path = FIGURES_DIR / "spec_curve.png"
 
     fig.savefig(output_path, dpi=300, bbox_inches="tight")
-    logger.info(f"Saved specification curve to {output_path}")
+    # Also save PDF vector version for journal submission
+    pdf_path = output_path.with_suffix(".pdf")
+    fig.savefig(pdf_path, format="pdf", bbox_inches="tight")
+    logger.info(f"Saved specification curve to {output_path} and {pdf_path}")
 
     return fig
 

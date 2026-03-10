@@ -102,7 +102,68 @@ def generate_latex_table(
 
 def generate_markdown_table(df: pd.DataFrame) -> str:
     """Convert DataFrame to Markdown table string."""
-    return df.to_markdown(floatfmt=".4f")
+    return df.fillna("--").to_markdown(floatfmt=".4f")
+
+
+def iop_by_circ_set() -> pd.DataFrame:
+    """IOp share by specific circumstance set (frozen set), with readable labels."""
+    df = _load_successful()
+    if df.empty:
+        return df
+
+    # Create a readable label from circumstances list
+    def circ_label(circs):
+        if not isinstance(circs, (list, tuple)):
+            return "unknown"
+        n = len(circs)
+        if n <= 3:
+            return " + ".join(c.replace("_", " ") for c in sorted(circs))
+        return f"{n} circs: " + ", ".join(sorted(circs)[:3]) + "..."
+
+    df["circ_set"] = df["circumstances"].apply(
+        lambda x: tuple(sorted(x)) if isinstance(x, (list, tuple)) else ()
+    )
+    df["circ_label"] = df["circumstances"].apply(circ_label)
+    df["n_circs"] = df["circ_set"].apply(len)
+
+    summary = df.groupby(["n_circs", "circ_label"]).agg(
+        mean_iop=("iop_share", "mean"),
+        std_iop=("iop_share", "std"),
+        min_iop=("iop_share", "min"),
+        max_iop=("iop_share", "max"),
+        n_specs=("iop_share", "count"),
+    ).round(4).sort_index()
+
+    return summary
+
+
+def iop_method_sensitivity() -> pd.DataFrame:
+    """Compare IOp across methods for the same circ set (method sensitivity table).
+
+    Shows how much IOp estimates vary by estimation method, holding
+    everything else constant. Key robustness check.
+    """
+    df = _load_successful()
+    if df.empty:
+        return df
+
+    # Filter to primary income + gini for clean comparison
+    mask = (df["income_variable"] == "hh_pc_imputed") & (df["inequality_measure"] == "gini")
+    sub = df[mask].copy()
+    if sub.empty:
+        sub = df.copy()
+
+    sub["n_circs"] = sub["circumstances"].apply(
+        lambda x: len(x) if isinstance(x, (list, tuple)) else 0
+    )
+    pivot = sub.pivot_table(
+        values="iop_share",
+        index="n_circs",
+        columns="method",
+        aggfunc="mean",
+    ).round(4)
+
+    return pivot
 
 
 def generate_all_tables() -> None:
@@ -134,6 +195,28 @@ def generate_all_tables() -> None:
             bs, "IOp share by sample restriction",
             "tab:by_sample", TABLES_DIR / "by_sample.tex"
         )
+        md = generate_markdown_table(bs)
+        (TABLES_DIR / "by_sample.md").write_text(md, encoding="utf-8")
+
+    # By specific circumstance set
+    cs = iop_by_circ_set()
+    if not cs.empty:
+        generate_latex_table(
+            cs, "IOp share by circumstance set",
+            "tab:by_circ_set", TABLES_DIR / "by_circ_set.tex"
+        )
+        md = generate_markdown_table(cs)
+        (TABLES_DIR / "by_circ_set.md").write_text(md, encoding="utf-8")
+
+    # Method sensitivity
+    ms = iop_method_sensitivity()
+    if not ms.empty:
+        generate_latex_table(
+            ms, "IOp share by method and number of circumstances (Gini, primary income)",
+            "tab:method_sensitivity", TABLES_DIR / "method_sensitivity.tex"
+        )
+        md = generate_markdown_table(ms)
+        (TABLES_DIR / "method_sensitivity.md").write_text(md, encoding="utf-8")
 
     logger.info("All summary tables generated")
 

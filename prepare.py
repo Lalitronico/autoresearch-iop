@@ -152,8 +152,8 @@ CEEY_STATE_TO_REGION: dict[int, int] = {
 }
 
 
-def _build_education_6(df: pd.DataFrame, nivel_col: str, grado_col: str) -> pd.Series:
-    """Build 6-category education scale from EMOVI nivel + grado columns.
+def _build_education_6(df: pd.DataFrame, nivel_col: str, completado_col: str) -> pd.Series:
+    """Build 6-category education scale from EMOVI nivel + completion columns.
 
     CEEY methodology from Informe de Movilidad Social 2025:
     1 = Sin estudios
@@ -162,35 +162,42 @@ def _build_education_6(df: pd.DataFrame, nivel_col: str, grado_col: str) -> pd.S
     4 = Secundaria (completa o incompleta)
     5 = Preparatoria (completa o incompleta)
     6 = Profesional (completa o incompleta)
+
+    ESRU-EMOVI 2023 coding for nivel (p43a/p43b):
+    1 = Ninguno, 2 = Preescolar, 3 = Primaria,
+    4 = Secundaria, 5 = Preparatoria, 6 = Profesional+, 9 = No sabe
+
+    Completion (p44a/p44b): 1 = Completó, 2 = No completó, 8 = No sabe
     """
     if nivel_col not in df.columns:
         return pd.Series(np.nan, index=df.index, dtype=float)
 
     nivel = pd.to_numeric(df[nivel_col], errors="coerce")
-    grado = pd.to_numeric(df.get(grado_col, pd.Series(np.nan, index=df.index)),
+    compl = pd.to_numeric(df.get(completado_col, pd.Series(np.nan, index=df.index)),
                           errors="coerce")
 
     result = pd.Series(np.nan, index=df.index, dtype=float)
 
-    # Sin estudios (nivel == 0 or nivel == 1 with grado == 0, depending on coding)
-    # CEEY: gen educ_padre=1 if p43==0 (ninguno)
-    result.loc[nivel == 0] = 1.0
+    # Sin estudios: ninguno (1) or preescolar (2)
+    result.loc[nivel.isin([1, 2])] = 1.0
 
-    # Primaria: nivel == 1
-    # Incompleta: grado < 6; Completa: grado >= 6
-    mask_primaria = nivel == 1
-    result.loc[mask_primaria & (grado < 6)] = 2.0  # primaria incompleta
-    result.loc[mask_primaria & (grado >= 6)] = 3.0  # primaria completa
-    result.loc[mask_primaria & grado.isna()] = 2.5  # unknown grado -> midpoint
+    # Primaria (nivel == 3): split by completion
+    mask_primaria = nivel == 3
+    result.loc[mask_primaria & (compl == 2)] = 2.0   # primaria incompleta
+    result.loc[mask_primaria & (compl == 1)] = 3.0   # primaria completa
+    result.loc[mask_primaria & (compl == 8)] = 2.5   # no sabe -> midpoint
+    result.loc[mask_primaria & compl.isna()] = 2.5   # missing -> midpoint
 
-    # Secundaria: nivel == 2
-    result.loc[nivel == 2] = 4.0
+    # Secundaria: nivel == 4
+    result.loc[nivel == 4] = 4.0
 
-    # Preparatoria / bachillerato: nivel == 3
-    result.loc[nivel == 3] = 5.0
+    # Preparatoria / bachillerato: nivel == 5
+    result.loc[nivel == 5] = 5.0
 
-    # Profesional / universidad+: nivel >= 4
-    result.loc[nivel >= 4] = 6.0
+    # Profesional / universidad+: nivel == 6
+    result.loc[nivel == 6] = 6.0
+
+    # No sabe (9) -> NaN (already default)
 
     return result
 
@@ -396,19 +403,19 @@ def construct_analytical_variables(df: pd.DataFrame) -> pd.DataFrame:
     _map_binary(df, out, "p44b", "mother_literacy")
 
     # -- Parental education (6-category CEEY scale) --
-    out["father_education_6"] = _build_education_6(df, "p43", "p44")
+    out["father_education_6"] = _build_education_6(df, "p43a", "p44a")
     if out["father_education_6"].notna().any():
         logger.info(f"  Built: father_education_6 (6 cat, "
                     f"{out['father_education_6'].notna().sum()} valid)")
     else:
-        logger.warning("  father_education_6: p43 not found")
+        logger.warning("  father_education_6: p43a not found")
 
-    out["mother_education_6"] = _build_education_6(df, "p43m", "p44m")
+    out["mother_education_6"] = _build_education_6(df, "p43b", "p44b")
     if out["mother_education_6"].notna().any():
         logger.info(f"  Built: mother_education_6 (6 cat, "
                     f"{out['mother_education_6'].notna().sum()} valid)")
     else:
-        logger.warning("  mother_education_6: p43m not found")
+        logger.warning("  mother_education_6: p43b not found")
 
     # max_parent_education: max of father and mother (CEEY primary variable)
     out["max_parent_education"] = pd.DataFrame({

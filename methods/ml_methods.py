@@ -6,6 +6,7 @@ and income, potentially providing tighter IOp bounds.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import Any
 
@@ -176,5 +177,6 @@ def _compute_shap(
         return {
             name: float(val) for name, val in zip(feature_names, mean_abs)
         }
-    except Exception:
+    except Exception as exc:
+        logging.getLogger(__name__).warning("SHAP computation failed: %s", exc)
         return None

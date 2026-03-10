@@ -61,6 +61,7 @@ def plot_iop_distribution(output_path: Path | None = None) -> plt.Figure:
     output_path = output_path or FIGURES_DIR / "iop_distribution.png"
     FIGURES_DIR.mkdir(parents=True, exist_ok=True)
     fig.savefig(output_path, dpi=300, bbox_inches="tight")
+    fig.savefig(output_path.with_suffix(".pdf"), format="pdf", bbox_inches="tight")
     logger.info(f"Saved IOp distribution to {output_path}")
     return fig
 
@@ -97,6 +98,7 @@ def plot_method_comparison(output_path: Path | None = None) -> plt.Figure:
 
     output_path = output_path or FIGURES_DIR / "method_comparison.png"
     fig.savefig(output_path, dpi=300, bbox_inches="tight")
+    fig.savefig(output_path.with_suffix(".pdf"), format="pdf", bbox_inches="tight")
     logger.info(f"Saved method comparison to {output_path}")
     return fig
 
@@ -120,7 +122,112 @@ def plot_measure_comparison(output_path: Path | None = None) -> plt.Figure:
 
     output_path = output_path or FIGURES_DIR / "measure_comparison.png"
     fig.savefig(output_path, dpi=300, bbox_inches="tight")
+    fig.savefig(output_path.with_suffix(".pdf"), format="pdf", bbox_inches="tight")
     logger.info(f"Saved measure comparison to {output_path}")
+    return fig
+
+
+def plot_circumstance_monotonicity(output_path: Path | None = None) -> plt.Figure:
+    """IOp share vs number of circumstances, by method.
+
+    Key figure for IOp papers: demonstrates monotonic non-decreasing
+    relationship between IOp and circumstance set size.
+    """
+    df = _load_successful_df()
+    if df.empty:
+        fig, ax = plt.subplots()
+        ax.text(0.5, 0.5, "No data", ha="center", va="center")
+        return fig
+
+    df["n_circs"] = df["circumstances"].apply(
+        lambda x: len(x) if isinstance(x, (list, tuple)) else 0
+    )
+    # Filter to primary income + gini for clarity
+    mask = (df["income_variable"] == "hh_pc_imputed") & (df["inequality_measure"] == "gini")
+    sub = df[mask].copy()
+
+    if sub.empty:
+        sub = df.copy()
+
+    fig, ax = plt.subplots(figsize=(9, 5.5))
+    methods = sorted(sub["method"].unique())
+    colors = {"ols": "#2166ac", "decision_tree": "#b2182b",
+              "xgboost": "#4dac26", "random_forest": "#7b3294"}
+    markers = {"ols": "o", "decision_tree": "s", "xgboost": "D", "random_forest": "^"}
+
+    for method in methods:
+        m = sub[sub["method"] == method]
+        agg = m.groupby("n_circs").agg(
+            mean=("iop_share", "mean"),
+            lo=("ci_lower", "mean"),
+            hi=("ci_upper", "mean"),
+        ).sort_index()
+        ax.plot(agg.index, agg["mean"],
+                marker=markers.get(method, "o"),
+                color=colors.get(method, "gray"),
+                label=method.replace("_", " ").title(),
+                linewidth=1.5, markersize=6)
+        ax.fill_between(agg.index, agg["lo"], agg["hi"],
+                        alpha=0.12, color=colors.get(method, "gray"))
+
+    ax.set_xlabel("Number of Circumstances")
+    ax.set_ylabel("IOp Share (Gini)")
+    ax.set_title("IOp Monotonicity: Effect of Circumstance Set Size")
+    ax.legend(loc="lower right")
+    ax.set_xticks(sorted(sub["n_circs"].unique()))
+
+    output_path = output_path or FIGURES_DIR / "circumstance_monotonicity.png"
+    FIGURES_DIR.mkdir(parents=True, exist_ok=True)
+    fig.savefig(output_path, dpi=300, bbox_inches="tight")
+    fig.savefig(output_path.with_suffix(".pdf"), format="pdf", bbox_inches="tight")
+    logger.info(f"Saved circumstance monotonicity to {output_path}")
+    return fig
+
+
+def plot_subgroup_comparison(output_path: Path | None = None) -> plt.Figure:
+    """Compare IOp across subgroups (gender, urban/rural, cohorts)."""
+    df = _load_successful_df()
+    if df.empty or df["sample_filter"].nunique() <= 1:
+        fig, ax = plt.subplots()
+        ax.text(0.5, 0.5, "No subgroup data yet", ha="center", va="center")
+        return fig
+
+    # Filter to OLS + gini + primary income for fair comparison
+    mask = (
+        (df["method"] == "ols")
+        & (df["inequality_measure"] == "gini")
+        & (df["income_variable"] == "hh_pc_imputed")
+    )
+    sub = df[mask].copy()
+    if len(sub["sample_filter"].unique()) <= 1:
+        sub = df.copy()
+
+    summary = sub.groupby("sample_filter").agg(
+        mean=("iop_share", "mean"),
+        lo=("ci_lower", "mean"),
+        hi=("ci_upper", "mean"),
+        n=("iop_share", "count"),
+    ).sort_values("mean")
+
+    fig, ax = plt.subplots(figsize=(9, max(4, len(summary) * 0.6)))
+    y_pos = range(len(summary))
+
+    ax.errorbar(
+        summary["mean"], y_pos,
+        xerr=[summary["mean"] - summary["lo"], summary["hi"] - summary["mean"]],
+        fmt="o", color="steelblue", capsize=4, markersize=6,
+    )
+
+    ax.set_yticks(list(y_pos))
+    ax.set_yticklabels([f'{s} (n={n})' for s, n in zip(summary.index, summary["n"])])
+    ax.set_xlabel("IOp Share (Gini)")
+    ax.set_title("IOp by Subgroup")
+    ax.axvline(summary["mean"].median(), color="gray", linestyle="--", alpha=0.5)
+
+    output_path = output_path or FIGURES_DIR / "subgroup_comparison.png"
+    fig.savefig(output_path, dpi=300, bbox_inches="tight")
+    fig.savefig(output_path.with_suffix(".pdf"), format="pdf", bbox_inches="tight")
+    logger.info(f"Saved subgroup comparison to {output_path}")
     return fig
 
 
@@ -130,6 +237,8 @@ def generate_all_figures() -> None:
     plot_iop_distribution()
     plot_method_comparison()
     plot_measure_comparison()
+    plot_circumstance_monotonicity()
+    plot_subgroup_comparison()
     # Spec curve is in its own module
     from synthesis.spec_curve import plot_specification_curve
     plot_specification_curve()

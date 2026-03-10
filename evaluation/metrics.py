@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import Any, Callable
 
@@ -11,6 +12,8 @@ from numpy.typing import NDArray
 
 from core.decomposition import decompose_iop, IOpResult
 from core.types import EstimationMethod
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -28,6 +31,7 @@ class IOpEstimate:
     variable_importance: dict[str, float]
     shap_importance: dict[str, float] | None
     bootstrap_distribution: list[float]
+    n_bootstrap_success: int
 
 
 def compute_iop_with_ci(
@@ -82,6 +86,7 @@ def compute_iop_with_ci(
     rng = np.random.default_rng(seed)
     n = len(y)
     boot_shares: list[float] = []
+    n_boot_failed = 0
 
     for _ in range(bootstrap_n):
         idx = rng.choice(n, size=n, replace=True)
@@ -99,7 +104,16 @@ def compute_iop_with_ci(
             )
             boot_shares.append(boot_iop.iop_share)
         except Exception:
+            n_boot_failed += 1
             continue  # Skip failed bootstrap iterations
+
+    n_boot_success = len(boot_shares)
+    if bootstrap_n > 0 and n_boot_failed / bootstrap_n > 0.10:
+        logger.warning(
+            f"Bootstrap: {n_boot_failed}/{bootstrap_n} iterations failed "
+            f"({n_boot_failed / bootstrap_n:.1%}). "
+            f"CI based on {n_boot_success} successful resamples."
+        )
 
     # CI from bootstrap percentiles
     alpha = 1 - confidence
@@ -137,4 +151,5 @@ def compute_iop_with_ci(
         variable_importance=var_importance,
         shap_importance=shap_imp,
         bootstrap_distribution=boot_shares,
+        n_bootstrap_success=n_boot_success,
     )

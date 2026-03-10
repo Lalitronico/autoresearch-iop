@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>autoresearch-iop | Pipeline Documentation</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --border: #30363d;
+    --text: #e6edf3;
+    --text-muted: #8b949e;
+    --accent: #58a6ff;
+    --accent2: #7ee787;
+    --accent3: #d2a8ff;
+    --accent4: #ffa657;
+    --accent5: #ff7b72;
+    --code-bg: #0d1117;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+  }
+  header {
+    background: linear-gradient(135deg, #1a1e2e 0%, #0d1117 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 3rem 2rem;
+    text-align: center;
+  }
+  header h1 { font-size: 2.5rem; font-weight: 700; margin-bottom: 0.5rem; }
+  header h1 span { color: var(--accent); }
+  header p.subtitle {
+    color: var(--text-muted);
+    font-size: 1.15rem;
+    max-width: 700px;
+    margin: 0 auto;
+  }
+  .badge-row {
+    margin-top: 1rem;
+    display: flex;
+    gap: 0.5rem;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 600;
+  }
+  .badge-blue { background: rgba(88,166,255,0.15); color: var(--accent); border: 1px solid rgba(88,166,255,0.3); }
+  .badge-green { background: rgba(126,231,135,0.15); color: var(--accent2); border: 1px solid rgba(126,231,135,0.3); }
+  .badge-purple { background: rgba(210,168,255,0.15); color: var(--accent3); border: 1px solid rgba(210,168,255,0.3); }
+  .badge-orange { background: rgba(255,166,87,0.15); color: var(--accent4); border: 1px solid rgba(255,166,87,0.3); }
+  nav {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0.75rem 2rem;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+  nav a {
+    color: var(--text-muted);
+    text-decoration: none;
+    margin-right: 1.5rem;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: color 0.2s;
+  }
+  nav a:hover { color: var(--accent); }
+  main {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 2rem;
+  }
+  section { margin-bottom: 3rem; }
+  h2 {
+    font-size: 1.6rem;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--accent);
+  }
+  h3 { font-size: 1.2rem; margin: 1.5rem 0 0.75rem; color: var(--accent3); }
+  h4 { font-size: 1rem; margin: 1rem 0 0.5rem; color: var(--accent4); }
+  p { margin-bottom: 0.75rem; color: var(--text); }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .arch-diagram {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 2rem;
+    margin: 1.5rem 0;
+    overflow-x: auto;
+  }
+  .arch-flow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.5rem;
+  }
+  .arch-box {
+    background: var(--bg);
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    padding: 0.75rem 1.25rem;
+    text-align: center;
+    min-width: 140px;
+  }
+  .arch-box.fixed { border-color: var(--accent2); }
+  .arch-box.agent { border-color: var(--accent4); border-style: dashed; }
+  .arch-box.output { border-color: var(--accent3); }
+  .arch-box .label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.25rem;
+  }
+  .arch-box.fixed .label { color: var(--accent2); }
+  .arch-box.agent .label { color: var(--accent4); }
+  .arch-box.output .label { color: var(--accent3); }
+  .arch-box .name { font-weight: 700; font-size: 0.95rem; }
+  .arch-arrow { color: var(--text-muted); font-size: 1.5rem; flex-shrink: 0; }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    overflow-x: auto;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    margin: 0.75rem 0;
+  }
+  code {
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  }
+  :not(pre) > code {
+    background: rgba(110,118,129,0.15);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  .kw { color: var(--accent5); }
+  .fn { color: var(--accent3); }
+  .str { color: var(--accent2); }
+  .cm { color: var(--text-muted); }
+  .num { color: var(--accent4); }
+  .cls { color: var(--accent); }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+    font-size: 0.9rem;
+  }
+  th, td {
+    padding: 0.6rem 0.75rem;
+    text-align: left;
+    border: 1px solid var(--border);
+  }
+  th {
+    background: var(--surface);
+    color: var(--accent);
+    font-weight: 600;
+  }
+  tr:nth-child(even) { background: rgba(22,27,34,0.5); }
+  .card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1rem;
+    margin: 1rem 0;
+  }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.25rem;
+  }
+  .card h4 {
+    margin-top: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .card .icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.9rem;
+    flex-shrink: 0;
+  }
+  .icon-blue { background: rgba(88,166,255,0.2); color: var(--accent); }
+  .icon-green { background: rgba(126,231,135,0.2); color: var(--accent2); }
+  .icon-purple { background: rgba(210,168,255,0.2); color: var(--accent3); }
+  .icon-orange { background: rgba(255,166,87,0.2); color: var(--accent4); }
+  .icon-red { background: rgba(255,123,114,0.2); color: var(--accent5); }
+  .compare { margin: 1.5rem 0; }
+  .compare td:first-child { font-weight: 600; color: var(--text-muted); width: 180px; }
+  .tree {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.25rem;
+    font-family: monospace;
+    font-size: 0.85rem;
+    line-height: 1.7;
+    margin: 1rem 0;
+  }
+  .tree .dir { color: var(--accent); font-weight: 600; }
+  .tree .file { color: var(--text); }
+  .tree .desc { color: var(--text-muted); }
+  .tree .agent { color: var(--accent4); }
+  .tree .fixed { color: var(--accent2); }
+  .flow-steps {
+    list-style: none;
+    counter-reset: step;
+    margin: 1rem 0;
+  }
+  .flow-steps li {
+    counter-increment: step;
+    padding: 0.75rem 1rem 0.75rem 3.5rem;
+    position: relative;
+    margin-bottom: 0.5rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+  .flow-steps li::before {
+    content: counter(step);
+    position: absolute;
+    left: 1rem;
+    top: 0.75rem;
+    width: 1.75rem;
+    height: 1.75rem;
+    background: rgba(88,166,255,0.15);
+    color: var(--accent);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.85rem;
+  }
+  .flow-steps li strong { color: var(--accent2); }
+  .safeguard {
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-start;
+    margin-bottom: 0.75rem;
+  }
+  .safeguard .check {
+    color: var(--accent2);
+    font-size: 1.2rem;
+    flex-shrink: 0;
+    margin-top: 0.1rem;
+  }
+  footer {
+    text-align: center;
+    padding: 2rem;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    border-top: 1px solid var(--border);
+    margin-top: 3rem;
+  }
+  @media (max-width: 768px) {
+    header { padding: 2rem 1rem; }
+    header h1 { font-size: 1.8rem; }
+    main { padding: 1rem; }
+    .arch-flow { flex-direction: column; }
+    .arch-arrow { transform: rotate(90deg); }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>autoresearch<span>-iop</span></h1>
+  <p class="subtitle">
+    Specification Curve Analysis for Inequality of Opportunity.
+    An autonomous research pipeline that maps the entire multiverse of IOp estimates.
+  </p>
+  <div class="badge-row">
+    <span class="badge badge-blue">Python 3.10+</span>
+    <span class="badge badge-green">ESRU-EMOVI 2023</span>
+    <span class="badge badge-purple">Roemer Framework</span>
+    <span class="badge badge-orange">Karpathy-inspired</span>
+  </div>
+</header>
+
+<nav>
+  <a href="#overview">Overview</a>
+  <a href="#karpathy">Karpathy vs IOp</a>
+  <a href="#architecture">Architecture</a>
+  <a href="#spec-space">Specification Space</a>
+  <a href="#pipeline">Pipeline Flow</a>
+  <a href="#components">Components</a>
+  <a href="#methods">Estimation Methods</a>
+  <a href="#safeguards">Safeguards</a>
+  <a href="#structure">File Structure</a>
+  <a href="#quickstart">Quick Start</a>
+</nav>
+
+<main>
+
+<section id="overview">
+  <h2>Overview</h2>
+  <p>
+    Inequality of Opportunity (IOp) estimates are notoriously sensitive to methodological decisions:
+    which circumstances to include, which income measure to use, which inequality index, which estimation method.
+    A single paper can report IOp shares ranging from <strong>10% to 50%</strong> depending on these choices.
+  </p>
+  <p>
+    <strong>autoresearch-iop</strong> automates the exploration of that specification space, producing a
+    <em>specification curve</em> that transparently shows how IOp estimates vary across <em>all</em> valid
+    methodological combinations. Instead of cherry-picking one specification, we map the entire
+    <strong>multiverse of estimates</strong>.
+  </p>
+  <p>
+    This pipeline is adapted from
+    <a href="https://github.com/karpathy/autoresearch" target="_blank">Karpathy's autoresearch</a>
+    for social science research. The key insight: instead of optimizing a single metric (lower BPB = better),
+    we explore and log <em>every</em> valid specification because in IOp analysis there is no single "correct" answer.
+  </p>
+</section>
+
+<section id="karpathy">
+  <h2>Karpathy's autoresearch vs. This Pipeline</h2>
+  <table class="compare">
+    <thead>
+      <tr><th>Dimension</th><th>Karpathy autoresearch</th><th>autoresearch-iop</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Goal</td>
+        <td>Optimize LLM training (lower BPB)</td>
+        <td>Map all valid IOp specifications</td>
+      </tr>
+      <tr>
+        <td>Agent edits</td>
+        <td><code>train.py</code> (model architecture)</td>
+        <td><code>analyze.py</code> (experiment specs)</td>
+      </tr>
+      <tr>
+        <td>Metric</td>
+        <td>BPB (single, lower = better)</td>
+        <td>IOp share + CI (no "better", map all)</td>
+      </tr>
+      <tr>
+        <td>Decision rule</td>
+        <td>Keep/revert (optimize)</td>
+        <td>Log everything (multiverse)</td>
+      </tr>
+      <tr>
+        <td>Runtime</td>
+        <td>~5 min/experiment (GPU)</td>
+        <td>Seconds/experiment (CPU, tabular)</td>
+      </tr>
+      <tr>
+        <td>Output</td>
+        <td>Best model weights</td>
+        <td>Specification curve + tables</td>
+      </tr>
+      <tr>
+        <td>Infrastructure</td>
+        <td><code>train.py</code> + eval loop</td>
+        <td><code>run_experiment.py</code> + bootstrap CI + diagnostics</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<section id="architecture">
+  <h2>Architecture</h2>
+  <div class="arch-diagram">
+    <div class="arch-flow">
+      <div class="arch-box fixed">
+        <div class="label">Fixed</div>
+        <div class="name">prepare.py</div>
+        <div style="font-size:0.75rem;color:var(--text-muted)">Load &amp; clean EMOVI</div>
+      </div>
+      <div class="arch-arrow">&rarr;</div>
+      <div class="arch-box output">
+        <div class="label">Data</div>
+        <div class="name">emovi_analytical.parquet</div>
+        <div style="font-size:0.75rem;color:var(--text-muted)">17,843 obs &times; 15 vars</div>
+      </div>
+      <div class="arch-arrow">&rarr;</div>
+      <div class="arch-box agent">
+        <div class="label">Agent Edits</div>
+        <div class="name">analyze.py</div>
+        <div style="font-size:0.75rem;color:var(--text-muted)">Define ExperimentSpec batch</div>
+      </div>
+      <div class="arch-arrow">&rarr;</div>
+      <div class="arch-box fixed">
+        <div class="label">Fixed Harness</div>
+        <div class="name">run_experiment.py</div>
+        <div style="font-size:0.75rem;color:var(--text-muted)">Validate &rarr; Estimate &rarr; Bootstrap &rarr; Log</div>
+      </div>
+    </div>
+    <div class="arch-flow">
+      <div class="arch-box output">
+        <div class="label">Append-only</div>
+        <div class="name">experiment_log.jsonl</div>
+        <div style="font-size:0.75rem;color:var(--text-muted)">All results, never deleted</div>
+      </div>
+      <div class="arch-arrow">&rarr;</div>
+      <div class="arch-box output">
+        <div class="label">Synthesis</div>
+        <div class="name">spec curve + tables</div>
+        <div style="font-size:0.75rem;color:var(--text-muted)">Publication-quality outputs</div>
+      </div>
+    </div>
+    <p style="text-align:center;color:var(--text-muted);margin-top:1rem;font-size:0.85rem;">
+      <span style="color:var(--accent2)">&#9632;</span> Fixed infrastructure &nbsp;&nbsp;
+      <span style="color:var(--accent4)">&#9634;</span> Agent-editable &nbsp;&nbsp;
+      <span style="color:var(--accent3)">&#9632;</span> Outputs
+    </p>
+  </div>
+</section>
+
+<section id="spec-space">
+  <h2>Specification Space</h2>
+  <p>Each experiment is a point in a multi-dimensional space of methodological choices:</p>
+  <table>
+    <thead>
+      <tr><th>Dimension</th><th>Options</th><th>Examples</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Circumstances</td>
+        <td>10 variables</td>
+        <td><code>father_education</code>, <code>ethnicity</code>, <code>skin_tone</code>, <code>region_14</code>, ...</td>
+      </tr>
+      <tr>
+        <td>Income</td>
+        <td>4 variants</td>
+        <td><code>hh_pc_imputed</code>, <code>hh_total_reported</code>, + log transforms</td>
+      </tr>
+      <tr>
+        <td>Inequality measure</td>
+        <td>7</td>
+        <td>Gini, MLD, Theil-T, Var(logs), Atkinson(&epsilon;=0.5, 1, 2)</td>
+      </tr>
+      <tr>
+        <td>Estimation method</td>
+        <td>5</td>
+        <td>OLS, Decision Tree, Conditional Forest, XGBoost, Random Forest</td>
+      </tr>
+      <tr>
+        <td>Decomposition</td>
+        <td>4</td>
+        <td>ex_ante, ex_post, lower_bound, upper_bound</td>
+      </tr>
+      <tr>
+        <td>Sample filter</td>
+        <td>16</td>
+        <td>all, male, female, cohorts (25-34, ..., 55-64), urban/rural &times; gender</td>
+      </tr>
+    </tbody>
+  </table>
+  <p style="color:var(--text-muted);font-size:0.9rem;">
+    Full combinatorial space is astronomically large. The agent strategically explores ~200-500 specifications
+    following a 60/30/10 rule: 60% systematic coverage, 30% hypothesis-driven, 10% robustness checks.
+  </p>
+</section>
+
+<section id="pipeline">
+  <h2>Pipeline Flow (per iteration)</h2>
+  <ol class="flow-steps">
+    <li>
+      <strong>Read previous results</strong> &mdash; Load <code>experiment_log.jsonl</code> and check the coverage tracker
+      to identify which regions of the specification space remain unexplored.
+    </li>
+    <li>
+      <strong>Identify gaps or hypotheses</strong> &mdash; The agent determines what's missing (systematic coverage)
+      or formulates a research question to test (e.g., "Does including skin tone change IOp?").
+    </li>
+    <li>
+      <strong>Write 5-10 specs in <code>analyze.py</code></strong> &mdash; Each <code>ExperimentSpec</code> defines one
+      point in the multiverse, with a clear rationale documenting why this combination was chosen.
+    </li>
+    <li>
+      <strong>Execute <code>python run_experiment.py</code></strong> &mdash; The fixed harness validates each spec,
+      loads the data, runs the estimation method, computes IOp with bootstrap confidence intervals,
+      runs diagnostics, and appends results to the log.
+    </li>
+    <li>
+      <strong>Review results and diagnostics</strong> &mdash; Check for flags (overfitting, small samples, wide CIs)
+      and adjust strategy accordingly.
+    </li>
+    <li>
+      <strong>Every ~25 experiments: generate synthesis</strong> &mdash; Specification curve plot, summary tables,
+      and figures for publication.
+    </li>
+    <li>
+      <strong>Repeat</strong> until coverage exceeds 80% of the target space or the researcher stops the loop.
+    </li>
+  </ol>
+</section>
+
+<section id="components">
+  <h2>Code Components</h2>
+
+  <h3>1. Type System &mdash; <code>core/types.py</code></h3>
+  <p>Central enum definitions ensuring type safety across the pipeline:</p>
+  <pre><code><span class="kw">class</span> <span class="cls">Circumstance</span>(str, Enum):
+    FATHER_EDUCATION = <span class="str">"father_education"</span>   <span class="cm"># educp (4 categories)</span>
+    MOTHER_EDUCATION = <span class="str">"mother_education"</span>   <span class="cm"># educm (4 categories)</span>
+    FATHER_OCCUPATION = <span class="str">"father_occupation"</span> <span class="cm"># clasep (6 categories)</span>
+    ETHNICITY = <span class="str">"ethnicity"</span>               <span class="cm"># p110 (5 categories)</span>
+    INDIGENOUS_LANGUAGE = <span class="str">"indigenous_language"</span>  <span class="cm"># p111 (binary)</span>
+    SKIN_TONE = <span class="str">"skin_tone"</span>               <span class="cm"># p112 (A-K -> 1-11)</span>
+    SKIN_TONE_CIELAB = <span class="str">"skin_tone_cielab"</span>   <span class="cm"># p113dL (continuous)</span>
+    REGION_14 = <span class="str">"region_14"</span>               <span class="cm"># region at age 14</span>
+    RURAL_14 = <span class="str">"rural_14"</span>                 <span class="cm"># rural at age 14</span>
+    GENDER = <span class="str">"gender"</span>                     <span class="cm"># sexo (0=F, 1=M)</span></code></pre>
+
+  <h3>2. Experiment Specification &mdash; <code>core/specification.py</code></h3>
+  <p>
+    A frozen dataclass that defines a single point in the specification space.
+    Key features: deterministic SHA-256 hashing (order-independent), domain validation rules,
+    and round-trip serialization.
+  </p>
+  <pre><code><span class="kw">@dataclass</span>(frozen=<span class="kw">True</span>)
+<span class="kw">class</span> <span class="cls">ExperimentSpec</span>:
+    circumstances: tuple[str, ...]      <span class="cm"># sorted automatically</span>
+    income_variable: str
+    inequality_measure: str
+    method: str
+    decomposition_type: str
+    sample_filter: str = <span class="str">"all"</span>
+    method_params: tuple = ()
+    seed: int = <span class="num">42</span>
+    bootstrap_n: int = <span class="num">200</span>
+    rationale: str = <span class="str">""</span>
+
+    <span class="kw">def</span> <span class="fn">validate</span>(self) -> list[str]:
+        <span class="cm"># Domain rules: no double-log, valid method-decomposition combos, etc.</span>
+        ...
+
+    <span class="kw">@property</span>
+    <span class="kw">def</span> <span class="fn">spec_id</span>(self) -> str:
+        <span class="cm"># Deterministic 12-char hash from key fields</span>
+        <span class="kw">return</span> sha256(key_fields)[:<span class="num">12</span>]</code></pre>
+
+  <h3>3. Inequality Measures &mdash; <code>core/inequality_measures.py</code></h3>
+  <p>Seven inequality measures implemented from scratch with optional sample weights:</p>
+  <div class="card-grid">
+    <div class="card">
+      <h4><span class="icon icon-blue">G</span> Gini Coefficient</h4>
+      <p style="font-size:0.85rem">Covariance formula: G = 2&middot;cov(y, F(y)) / &mu;. Handles weighted data and ties.</p>
+    </div>
+    <div class="card">
+      <h4><span class="icon icon-green">M</span> MLD / GE(0)</h4>
+      <p style="font-size:0.85rem">Mean Log Deviation: log(&mu;) - mean(log(y)). Exactly additively decomposable.</p>
+    </div>
+    <div class="card">
+      <h4><span class="icon icon-purple">T</span> Theil-T / GE(1)</h4>
+      <p style="font-size:0.85rem">Theil index: mean((y/&mu;)&middot;log(y/&mu;)). Also additively decomposable.</p>
+    </div>
+    <div class="card">
+      <h4><span class="icon icon-orange">V</span> Variance of Logs</h4>
+      <p style="font-size:0.85rem">Var(log(y)). Classic measure, but not decomposition-consistent.</p>
+    </div>
+    <div class="card">
+      <h4><span class="icon icon-red">A</span> Atkinson(&epsilon;)</h4>
+      <p style="font-size:0.85rem">Normative index with aversion parameter. Three presets: &epsilon; = 0.5, 1.0, 2.0.</p>
+    </div>
+  </div>
+
+  <h3>4. IOp Decomposition &mdash; <code>core/decomposition.py</code></h3>
+  <p>Four decomposition approaches, each giving a different interpretation of IOp:</p>
+  <table>
+    <thead>
+      <tr><th>Type</th><th>Formula</th><th>Interpretation</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>lower_bound</code></td>
+        <td>I(&ycirc;) / I(y)</td>
+        <td>Parametric (Ferreira-Gignoux). IOp of predicted values over total. Conservative.</td>
+      </tr>
+      <tr>
+        <td><code>ex_ante</code></td>
+        <td>I(&mu;<sub>k</sub>) / I(y)</td>
+        <td>Between-type inequality over total. Uses group means.</td>
+      </tr>
+      <tr>
+        <td><code>ex_post</code></td>
+        <td>1 &minus; &Sigma; w<sub>k</sub>&middot;I(y<sub>k</sub>) / I(y)</td>
+        <td>Total minus weighted within-type inequality. Exact for GE measures.</td>
+      </tr>
+      <tr>
+        <td><code>upper_bound</code></td>
+        <td>Same as ex_post</td>
+        <td>Explicitly labeled upper bound for clarity.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>5. Data Loader &mdash; <code>core/data_loader.py</code></h3>
+  <p>
+    The <code>DataRegistry</code> class provides validated access to ESRU-EMOVI 2023 data.
+    It handles 16 sample filters (gender, age cohorts, urban/rural combinations),
+    validates that requested circumstances and income variables exist in the data,
+    and returns aligned (y, X) arrays ready for estimation.
+  </p>
+
+  <h3>6. Experiment Harness &mdash; <code>run_experiment.py</code></h3>
+  <p>
+    The <strong>fixed</strong> harness that the agent never modifies. It orchestrates the full pipeline:
+  </p>
+  <pre><code><span class="fn">run_single_experiment</span>(spec):
+    <span class="num">1.</span> Validate spec (domain rules)
+    <span class="num">2.</span> Load data + apply sample filter
+    <span class="num">3.</span> Handle income transformations (log detection)
+    <span class="num">4.</span> Dispatch to estimation method (OLS/Tree/XGB/RF)
+    <span class="num">5.</span> Compute IOp with bootstrap CI (<span class="num">200</span> iterations)
+    <span class="num">6.</span> Run diagnostics (flags, warnings)
+    <span class="num">7.</span> Build ExperimentResult
+    <span class="num">8.</span> Append to log (JSONL + TSV)</code></pre>
+
+  <h3>7. Bootstrap CI &mdash; <code>evaluation/metrics.py</code></h3>
+  <p>
+    Percentile bootstrap with configurable iterations (default 200) and confidence level (95%).
+    Each bootstrap iteration re-estimates the full pipeline (re-fit model + recompute IOp) on a
+    resampled dataset, producing a distribution of IOp shares. CIs come from the 2.5th and 97.5th percentiles.
+  </p>
+
+  <h3>8. Experiment Log &mdash; <code>orchestration/experiment_log.py</code></h3>
+  <p>
+    <strong>Append-only</strong> JSONL log. Every experiment (success, failure, or invalid) gets recorded
+    with its full specification, results, diagnostics, and runtime. A parallel TSV mirror provides
+    human-readable access. Results are never deleted or modified.
+  </p>
+</section>
+
+<section id="methods">
+  <h2>Estimation Methods</h2>
+
+  <div class="card-grid">
+    <div class="card">
+      <h4><span class="icon icon-blue">OLS</span> Parametric (Ferreira-Gignoux)</h4>
+      <p style="font-size:0.85rem">
+        <code>methods/parametric.py</code><br><br>
+        OLS regression of income on dummy-encoded circumstances.
+        R&sup2; provides the parametric lower bound.
+        I(&ycirc;)/I(y) gives measure-specific IOp share.
+        Only valid decomposition: <code>lower_bound</code>.
+      </p>
+    </div>
+    <div class="card">
+      <h4><span class="icon icon-green">DT</span> Decision Tree</h4>
+      <p style="font-size:0.85rem">
+        <code>methods/nonparametric.py</code><br><br>
+        sklearn <code>DecisionTreeRegressor</code> as proxy for ctree.
+        Partitions individuals into "types" (leaf nodes).
+        Type means used for ex-ante; within-type inequality for ex-post.
+        Pruned via <code>ccp_alpha</code>.
+      </p>
+    </div>
+    <div class="card">
+      <h4><span class="icon icon-purple">XGB</span> XGBoost</h4>
+      <p style="font-size:0.85rem">
+        <code>methods/ml_methods.py</code><br><br>
+        Gradient boosting with 5-fold cross-validated predictions to avoid
+        overfitting bias. SHAP values for variable importance.
+        Only valid decomposition: <code>ex_ante</code>.
+      </p>
+    </div>
+    <div class="card">
+      <h4><span class="icon icon-orange">RF</span> Random Forest</h4>
+      <p style="font-size:0.85rem">
+        <code>methods/ml_methods.py</code><br><br>
+        Ensemble of 200 trees with cross-validated predictions.
+        Captures non-linear circumstance-income relationships.
+        SHAP importance available. Decomposition: <code>ex_ante</code>.
+      </p>
+    </div>
+  </div>
+
+  <h3>Valid Method-Decomposition Combinations</h3>
+  <table>
+    <thead>
+      <tr><th>Method</th><th>lower_bound</th><th>ex_ante</th><th>ex_post</th><th>upper_bound</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>OLS</td><td style="color:var(--accent2)">&#10003;</td><td style="color:var(--accent5)">&#10007;</td><td style="color:var(--accent5)">&#10007;</td><td style="color:var(--accent5)">&#10007;</td></tr>
+      <tr><td>Decision Tree</td><td style="color:var(--accent5)">&#10007;</td><td style="color:var(--accent2)">&#10003;</td><td style="color:var(--accent2)">&#10003;</td><td style="color:var(--accent2)">&#10003;</td></tr>
+      <tr><td>Conditional Forest</td><td style="color:var(--accent5)">&#10007;</td><td style="color:var(--accent2)">&#10003;</td><td style="color:var(--accent2)">&#10003;</td><td style="color:var(--accent2)">&#10003;</td></tr>
+      <tr><td>XGBoost</td><td style="color:var(--accent5)">&#10007;</td><td style="color:var(--accent2)">&#10003;</td><td style="color:var(--accent5)">&#10007;</td><td style="color:var(--accent5)">&#10007;</td></tr>
+      <tr><td>Random Forest</td><td style="color:var(--accent5)">&#10007;</td><td style="color:var(--accent2)">&#10003;</td><td style="color:var(--accent5)">&#10007;</td><td style="color:var(--accent5)">&#10007;</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section id="safeguards">
+  <h2>Methodological Safeguards</h2>
+  <div class="safeguard">
+    <span class="check">&#10003;</span>
+    <div><strong>Append-only log</strong> &mdash; All results are recorded and never deleted. Success, failure, and invalid specs are all logged for full transparency.</div>
+  </div>
+  <div class="safeguard">
+    <span class="check">&#10003;</span>
+    <div><strong>Coverage-based exploration</strong> &mdash; The agent selects specifications based on what's <em>missing</em> from the explored space, not based on which results look "interesting". This prevents p-hacking by proxy.</div>
+  </div>
+  <div class="safeguard">
+    <span class="check">&#10003;</span>
+    <div><strong>Spec validation</strong> &mdash; Domain rules prevent invalid combinations (e.g., double-log, OLS + ex_post, no circumstances). Invalid specs are caught before execution.</div>
+  </div>
+  <div class="safeguard">
+    <span class="check">&#10003;</span>
+    <div><strong>Diagnostics</strong> &mdash; Sample size guards (min 100 observations), CI width checks, overfitting detection (comparing in-sample R&sup2; vs CV R&sup2;), and automatic flagging of suspicious results.</div>
+  </div>
+  <div class="safeguard">
+    <span class="check">&#10003;</span>
+    <div><strong>Reproducibility</strong> &mdash; Deterministic seeds throughout. Same spec_id + seed = identical results. Bootstrap RNG is seeded per-experiment.</div>
+  </div>
+  <div class="safeguard">
+    <span class="check">&#10003;</span>
+    <div><strong>Deterministic spec hashing</strong> &mdash; Each specification gets a unique 12-character SHA-256 hash. Circumstance order doesn't matter (auto-sorted). Duplicate specs are detected automatically.</div>
+  </div>
+</section>
+
+<section id="structure">
+  <h2>Repository Structure</h2>
+  <div class="tree">
+    <span class="dir">autoresearch-iop/</span><br>
+    &#9500;&#9472;&#9472; <span class="dir">core/</span> <span class="desc">&larr; Types, spec validation, measures, decomposition</span><br>
+    &#9474;&nbsp;&nbsp; &#9500;&#9472;&#9472; <span class="file">types.py</span> <span class="desc">&mdash; Enums: Circumstance, IncomeVariable, InequalityMeasure, ...</span><br>
+    &#9474;&nbsp;&nbsp; &#9500;&#9472;&#9472; <span class="file">specification.py</span> <span class="desc">&mdash; ExperimentSpec dataclass + validation + hashing</span><br>
+    &#9474;&nbsp;&nbsp; &#9500;&#9472;&#9472; <span class="file">inequality_measures.py</span> <span class="desc">&mdash; Gini, MLD, Theil-T, Var(logs), Atkinson</span><br>
+    &#9474;&nbsp;&nbsp; &#9500;&#9472;&#9472; <span class="file">decomposition.py</span> <span class="desc">&mdash; IOp decomposition: ex_ante, ex_post, lower/upper bound</span><br>
+    &#9474;&nbsp;&nbsp; &#9492;&#9472;&#9472; <span class="file">data_loader.py</span> <span class="desc">&mdash; DataRegistry: load EMOVI, filter samples, validate specs</span><br>
+    &#9500;&#9472;&#9472; <span class="dir">methods/</span> <span class="desc">&larr; Estimation methods</span><br>
+    &#9474;&nbsp;&nbsp; &#9500;&#9472;&#9472; <span class="file">parametric.py</span> <span class="desc">&mdash; Ferreira-Gignoux OLS</span><br>
+    &#9474;&nbsp;&nbsp; &#9500;&#9472;&#9472; <span class="file">nonparametric.py</span> <span class="desc">&mdash; Decision tree type partitioning</span><br>
+    &#9474;&nbsp;&nbsp; &#9492;&#9472;&#9472; <span class="file">ml_methods.py</span> <span class="desc">&mdash; XGBoost, Random Forest, SHAP</span><br>
+    &#9500;&#9472;&#9472; <span class="dir">evaluation/</span> <span class="desc">&larr; Bootstrap CI + diagnostics</span><br>
+    &#9474;&nbsp;&nbsp; &#9500;&#9472;&#9472; <span class="file">metrics.py</span> <span class="desc">&mdash; compute_iop_with_ci (bootstrap)</span><br>
+    &#9474;&nbsp;&nbsp; &#9492;&#9472;&#9472; <span class="file">diagnostics.py</span> <span class="desc">&mdash; Flags, warnings, sample guards</span><br>
+    &#9500;&#9472;&#9472; <span class="dir">orchestration/</span> <span class="desc">&larr; Logging, coverage, strategy</span><br>
+    &#9474;&nbsp;&nbsp; &#9500;&#9472;&#9472; <span class="file">experiment_log.py</span> <span class="desc">&mdash; Append-only JSONL + TSV logging</span><br>
+    &#9474;&nbsp;&nbsp; &#9500;&#9472;&#9472; <span class="file">coverage_tracker.py</span> <span class="desc">&mdash; Track explored spec regions</span><br>
+    &#9474;&nbsp;&nbsp; &#9492;&#9472;&#9472; <span class="file">strategy.py</span> <span class="desc">&mdash; 60/30/10 exploration strategy</span><br>
+    &#9500;&#9472;&#9472; <span class="dir">synthesis/</span> <span class="desc">&larr; Spec curve plot, tables, figures</span><br>
+    &#9474;&nbsp;&nbsp; &#9500;&#9472;&#9472; <span class="file">spec_curve.py</span> <span class="desc">&mdash; Specification curve plot</span><br>
+    &#9474;&nbsp;&nbsp; &#9500;&#9472;&#9472; <span class="file">summary_tables.py</span> <span class="desc">&mdash; LaTeX / markdown tables</span><br>
+    &#9474;&nbsp;&nbsp; &#9492;&#9472;&#9472; <span class="file">figures.py</span> <span class="desc">&mdash; Publication-quality figures</span><br>
+    &#9500;&#9472;&#9472; <span class="dir">tests/</span> <span class="desc">&larr; 44 tests (unit + integration + e2e)</span><br>
+    &#9500;&#9472;&#9472; <span class="dir">data/</span><br>
+    &#9474;&nbsp;&nbsp; &#9500;&#9472;&#9472; <span class="dir">raw/</span> <span class="desc">&mdash; ESRU-EMOVI .dta files (gitignored)</span><br>
+    &#9474;&nbsp;&nbsp; &#9492;&#9472;&#9472; <span class="dir">processed/</span> <span class="desc">&mdash; .parquet analytical dataset (gitignored)</span><br>
+    &#9500;&#9472;&#9472; <span class="dir">results/</span> <span class="desc">&mdash; Experiment logs + figures + tables</span><br>
+    &#9500;&#9472;&#9472; <span class="file agent">analyze.py</span> <span class="desc">&mdash; Agent-editable spec definitions</span><br>
+    &#9500;&#9472;&#9472; <span class="file fixed">prepare.py</span> <span class="desc">&mdash; Data preparation (FIXED)</span><br>
+    &#9500;&#9472;&#9472; <span class="file fixed">run_experiment.py</span> <span class="desc">&mdash; Experiment harness (FIXED)</span><br>
+    &#9500;&#9472;&#9472; <span class="file">program.md</span> <span class="desc">&mdash; Agent instructions</span><br>
+    &#9500;&#9472;&#9472; <span class="file">CLAUDE.md</span> <span class="desc">&mdash; Claude Code project config</span><br>
+    &#9492;&#9472;&#9472; <span class="file">pyproject.toml</span> <span class="desc">&mdash; Package config + dependencies</span>
+  </div>
+</section>
+
+<section id="quickstart">
+  <h2>Quick Start</h2>
+  <pre><code><span class="cm"># Clone the repository</span>
+git clone https://github.com/Lalitronico/autoresearch-iop.git
+cd autoresearch-iop
+
+<span class="cm"># Install dependencies</span>
+pip install -e <span class="str">".[dev]"</span>
+
+<span class="cm"># Prepare data (synthetic for testing, or place real .dta in data/raw/)</span>
+python prepare.py --synthetic
+
+<span class="cm"># Run baseline experiments (3 specs defined in analyze.py)</span>
+python run_experiment.py
+
+<span class="cm"># Run the test suite (44 tests)</span>
+python -m pytest tests/ -v
+
+<span class="cm"># The agent modifies analyze.py to add new specs, then re-runs</span>
+<span class="cm"># Results accumulate in results/experiment_log.jsonl</span></code></pre>
+
+  <h3>Data</h3>
+  <p>
+    Uses <strong>ESRU-EMOVI 2023</strong> from Mexico (Centro de Estudios Espinosa Yglesias).
+    17,843 respondents aged 25-64. Place the raw <code>.dta</code> file in <code>data/raw/</code> and run
+    <code>python prepare.py</code>. For testing without real data, use <code>python prepare.py --synthetic</code>
+    which generates 500 observations with realistic distributions.
+  </p>
+
+  <h3>First Results (Real Data)</h3>
+  <table>
+    <thead>
+      <tr><th>Spec</th><th>Method</th><th>Measure</th><th>IOp Share</th><th>95% CI</th><th>n</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Baseline 1</td><td>OLS / lower_bound</td><td>Gini</td>
+        <td>0.392</td><td>[0.361, 0.423]</td><td>13,197</td>
+      </tr>
+      <tr>
+        <td>Baseline 2</td><td>OLS / lower_bound</td><td>MLD</td>
+        <td>0.138</td><td>[0.118, 0.161]</td><td>13,197</td>
+      </tr>
+      <tr>
+        <td>Baseline 3</td><td>Decision Tree / ex_ante</td><td>MLD</td>
+        <td>0.155</td><td>[0.143, 0.179]</td><td>13,197</td>
+      </tr>
+    </tbody>
+  </table>
+  <p style="color:var(--text-muted);font-size:0.85rem;">
+    Circumstances: father_education, mother_education, father_occupation, ethnicity.
+    Income: hh_pc_imputed. n drops from 17,843 to 13,197 due to missing values in parental variables.
+  </p>
+</section>
+
+</main>
+
+<footer>
+  <p>
+    <strong>autoresearch-iop</strong> &mdash;
+    Inspired by <a href="https://github.com/karpathy/autoresearch">Karpathy's autoresearch</a>
+    &middot; IOp framework: Roemer (1998), Ferreira &amp; Gignoux (2011)
+    &middot; Data: ESRU-EMOVI 2023, Centro de Estudios Espinosa Yglesias
+  </p>
+  <p style="margin-top:0.5rem;">MIT License</p>
+</footer>
+
+</body>
+</html>

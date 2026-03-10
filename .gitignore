@@ -1,0 +1,35 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+.venv/
+venv/
+env/
+
+# Data
+data/raw/
+data/context/
+data/processed/*.parquet
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Claude Code
+.claude/
+
+# Results (keep structure, ignore large outputs)
+results/experiment_log.jsonl
+results/experiment_log.tsv
+results/figures/*.png
+results/figures/*.pdf
+results/tables/*.tex
+results/tables/*.md

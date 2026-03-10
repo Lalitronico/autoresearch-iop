@@ -1,0 +1,204 @@
+{
+  "n_observations": 500,
+  "n_variables": 15,
+  "variables": {
+    "father_education": {
+      "dtype": "float64",
+      "n_missing": 0,
+      "pct_missing": 0.0,
+      "role": "circumstance",
+      "unique_values": 4,
+      "value_counts": {
+        "0.0": 176,
+        "1.0": 124,
+        "2.0": 118,
+        "3.0": 82
+      }
+    },
+    "mother_education": {
+      "dtype": "float64",
+      "n_missing": 0,
+      "pct_missing": 0.0,
+      "role": "circumstance",
+      "unique_values": 4,
+      "value_counts": {
+        "0.0": 206,
+        "1.0": 118,
+        "2.0": 91,
+        "3.0": 85
+      }
+    },
+    "father_occupation": {
+      "dtype": "float64",
+      "n_missing": 0,
+      "pct_missing": 0.0,
+      "role": "circumstance",
+      "unique_values": 6,
+      "value_counts": {
+        "0.0": 104,
+        "2.0": 99,
+        "1.0": 91,
+        "3.0": 75,
+        "4.0": 75,
+        "5.0": 56
+      }
+    },
+    "ethnicity": {
+      "dtype": "float64",
+      "n_missing": 0,
+      "pct_missing": 0.0,
+      "role": "circumstance",
+      "unique_values": 5,
+      "value_counts": {
+        "0.0": 192,
+        "1.0": 127,
+        "2.0": 75,
+        "3.0": 63,
+        "4.0": 43
+      }
+    },
+    "indigenous_language": {
+      "dtype": "float64",
+      "n_missing": 0,
+      "pct_missing": 0.0,
+      "role": "circumstance",
+      "unique_values": 2,
+      "value_counts": {
+        "0.0": 453,
+        "1.0": 47
+      }
+    },
+    "skin_tone": {
+      "dtype": "float64",
+      "n_missing": 0,
+      "pct_missing": 0.0,
+      "role": "circumstance",
+      "unique_values": 11,
+      "value_counts": {
+        "6.0": 54,
+        "10.0": 50,
+        "3.0": 48,
+        "4.0": 48,
+        "7.0": 45,
+        "9.0": 45,
+        "11.0": 44,
+        "5.0": 43,
+        "1.0": 42,
+        "8.0": 41,
+        "2.0": 40
+      }
+    },
+    "skin_tone_cielab": {
+      "dtype": "float64",
+      "n_missing": 0,
+      "pct_missing": 0.0,
+      "role": "circumstance",
+      "mean": 55.5433273357336,
+      "std": 9.936070932990381,
+      "min": 30.0,
+      "max": 85.0,
+      "median": 55.26387733501363,
+      "p25": 48.35294565715647,
+      "p75": 62.49861231051676
+    },
+    "region_14": {
+      "dtype": "float64",
+      "n_missing": 0,
+      "pct_missing": 0.0,
+      "role": "circumstance",
+      "unique_values": 5,
+      "value_counts": {
+        "2.0": 115,
+        "0.0": 108,
+        "4.0": 96,
+        "3.0": 91,
+        "1.0": 90
+      }
+    },
+    "rural_14": {
+      "dtype": "float64",
+      "n_missing": 0,
+      "pct_missing": 0.0,
+      "role": "circumstance",
+      "unique_values": 2,
+      "value_counts": {
+        "0.0": 293,
+        "1.0": 207
+      }
+    },
+    "gender": {
+      "dtype": "float64",
+      "n_missing": 0,
+      "pct_missing": 0.0,
+      "role": "circumstance",
+      "unique_values": 2,
+      "value_counts": {
+        "1.0": 253,
+        "0.0": 247
+      }
+    },
+    "age": {
+      "dtype": "float64",
+      "n_missing": 0,
+      "pct_missing": 0.0,
+      "role": "demographic",
+      "mean": 44.384,
+      "std": 11.489672281587344,
+      "min": 25.0,
+      "max": 64.0,
+      "median": 43.5,
+      "p25": 35.0,
+      "p75": 54.0
+    },
+    "urban": {
+      "dtype": "float64",
+      "n_missing": 0,
+      "pct_missing": 0.0,
+      "role": "demographic",
+      "unique_values": 2,
+      "value_counts": {
+        "1.0": 332,
+        "0.0": 168
+      }
+    },
+    "hh_pc_imputed": {
+      "dtype": "float64",
+      "n_missing": 0,
+      "pct_missing": 0.0,
+      "role": "income",
+      "mean": 15567.908370087009,
+      "std": 11870.905789004284,
+      "min": 462.97307459534517,
+      "max": 91453.97199504465,
+      "median": 12375.61484155025,
+      "p25": 7616.0551652297045,
+      "p75": 19836.864195194856
+    },
+    "hh_total_reported": {
+      "dtype": "float64",
+      "n_missing": 114,
+      "pct_missing": 22.8,
+      "role": "income",
+      "mean": 56991.1519316653,
+      "std": 48929.31824686469,
+      "min": 1366.5788255258528,
+      "max": 389532.42609729833,
+      "median": 42799.1490753712,
+      "p25": 24676.33703082618,
+      "p75": 68991.16485076614
+    },
+    "weight": {
+      "dtype": "float64",
+      "n_missing": 0,
+      "pct_missing": 0.0,
+      "role": "weight",
+      "mean": 1.7574524454482534,
+      "std": 0.7347784681214732,
+      "min": 0.5064465262164657,
+      "max": 2.9999425510442355,
+      "median": 1.7416591708890576,
+      "p25": 1.160800682053713,
+      "p75": 2.422922232108937
+    }
+  }
+}

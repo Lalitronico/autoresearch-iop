@@ -106,19 +106,34 @@ python autoresearch.py --systematic    # Systematic coverage only
 python autoresearch.py --findings      # Show detected patterns from completed experiments
 python autoresearch.py --robustness    # Robustness checks on existing results
 
-# Run the test suite (44 tests)
+# Run the test suite (104 tests)
 python -m pytest tests/ -v
 ```
 
 ## Data
 
-Uses **ESRU-EMOVI 2023** from Mexico (Centro de Estudios Espinosa Yglesias). 17,843 respondents aged 25-64. Place the raw `.dta` file in `data/raw/` and run `python prepare.py`.
+Uses **ESRU-EMOVI 2023** from Mexico (Centro de Estudios Espinosa Yglesias). 17,843 respondents aged 25-64.
 
-For testing without real data:
+### Obtaining the data
+
+1. Visit the [CEEY data portal](https://ceey.org.mx/contenido/que-hacemos/emovi/) or contact CEEY directly
+2. Download the respondent-level file (`entrevistado_2023.dta`)
+3. Place it in `data/raw/entrevistado_2023.dta`
+4. Run `python prepare.py` to generate the analytical dataset
+
+The pipeline produces `data/processed/emovi_analytical.parquet` (17,843 obs x 38 variables) with all 33 circumstance variables pre-coded.
+
+### Synthetic data for testing
 
 ```bash
 python prepare.py --synthetic  # Generates 500 observations with realistic distributions
 ```
+
+This creates synthetic data mimicking the real distributions, sufficient for testing the pipeline end-to-end. All tests use synthetic data via test fixtures.
+
+### CI badge
+
+[![CI](https://github.com/Lalitronico/autoresearch-iop/actions/workflows/ci.yml/badge.svg)](https://github.com/Lalitronico/autoresearch-iop/actions/workflows/ci.yml)
 
 ## Autonomous Exploration Loop
 
@@ -183,7 +198,7 @@ autoresearch-iop/
 │   ├── spec_curve.py             # Specification curve plot
 │   ├── summary_tables.py         # LaTeX / markdown tables
 │   └── figures.py                # Publication-quality figures
-├── tests/                        # 44 tests (unit + integration + e2e)
+├── tests/                        # 104 tests (unit + integration + e2e)
 ├── data/
 │   ├── raw/                      # ESRU-EMOVI .dta files (gitignored)
 │   ├── processed/                # .parquet analytical dataset (gitignored)

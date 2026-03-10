@@ -27,10 +27,7 @@ Thumbs.db
 # Claude Code
 .claude/
 
-# Results (keep structure, ignore large outputs)
+# Results - raw logs (regenerable from pipeline)
 results/experiment_log.jsonl
+results/experiment_log.jsonl.bak
 results/experiment_log.tsv
-results/figures/*.png
-results/figures/*.pdf
-results/tables/*.tex
-results/tables/*.md

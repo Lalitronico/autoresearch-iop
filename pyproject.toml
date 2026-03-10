@@ -1,11 +1,13 @@
 [build-system]
 requires = ["setuptools>=68.0"]
-build-backend = "setuptools.backends._legacy:_Backend"
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "autoresearch-iop"
 version = "0.1.0"
 description = "Specification Curve Analysis for Inequality of Opportunity"
+readme = "README.md"
+license = {text = "MIT"}
 requires-python = ">=3.10"
 dependencies = [
     "pandas>=2.0",
@@ -23,6 +25,9 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=7.0", "pytest-cov>=4.0"]
+
+[project.urls]
+Repository = "https://github.com/Lalitronico/autoresearch-iop"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -46,6 +46,7 @@ def build_spec_curve_data() -> pd.DataFrame:
             "sample_filter": r.get("sample_filter", "all"),
             "n_circumstances": len(r.get("circumstances", [])),
             "circumstances": "|".join(r.get("circumstances", [])),
+            "use_mi": r.get("use_mi", False),
         })
 
     df = pd.DataFrame(rows)

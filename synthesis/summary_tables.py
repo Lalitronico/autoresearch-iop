@@ -166,6 +166,37 @@ def iop_method_sensitivity() -> pd.DataFrame:
     return pivot
 
 
+def iop_listwise_vs_mi() -> pd.DataFrame:
+    """Compare IOp estimates: listwise deletion vs multiple imputation.
+
+    Groups by method and number of circumstances, showing mean IOp share
+    for listwise and MI side by side. Key sensitivity analysis table.
+    """
+    df = _load_successful()
+    if df.empty:
+        return df
+
+    df["use_mi"] = df.get("use_mi", False).fillna(False).astype(bool)
+    df["mi_label"] = df["use_mi"].map({True: "MI", False: "Listwise"})
+    df["n_circs"] = df["circumstances"].apply(
+        lambda x: len(x) if isinstance(x, (list, tuple)) else 0
+    )
+
+    # Only include specs that have both listwise and MI variants
+    if df["use_mi"].nunique() < 2:
+        logger.info("Both listwise and MI results needed for comparison table")
+        return pd.DataFrame()
+
+    pivot = df.pivot_table(
+        values="iop_share",
+        index=["method", "n_circs"],
+        columns="mi_label",
+        aggfunc=["mean", "count"],
+    ).round(4)
+
+    return pivot
+
+
 def generate_all_tables() -> None:
     """Generate all summary tables and save to results/tables/."""
     TABLES_DIR.mkdir(parents=True, exist_ok=True)
@@ -217,6 +248,16 @@ def generate_all_tables() -> None:
         )
         md = generate_markdown_table(ms)
         (TABLES_DIR / "method_sensitivity.md").write_text(md, encoding="utf-8")
+
+    # Listwise vs MI comparison
+    lm = iop_listwise_vs_mi()
+    if not lm.empty:
+        generate_latex_table(
+            lm, "IOp share: listwise deletion vs multiple imputation",
+            "tab:listwise_vs_mi", TABLES_DIR / "listwise_vs_mi.tex"
+        )
+        md = generate_markdown_table(lm)
+        (TABLES_DIR / "listwise_vs_mi.md").write_text(md, encoding="utf-8")
 
     logger.info("All summary tables generated")
 

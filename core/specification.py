@@ -35,6 +35,7 @@ class ExperimentSpec:
     seed: int = 42
     bootstrap_n: int = 200
     rationale: str = ""
+    use_mi: bool = False
 
     def __post_init__(self) -> None:
         # Normalize circumstances to sorted tuple for consistency
@@ -56,6 +57,10 @@ class ExperimentSpec:
             "method_params": dict(self.method_params),
             "seed": self.seed,
         }
+        # Only include use_mi when True to preserve backward compatibility
+        # with spec_ids computed before the MI feature was added
+        if self.use_mi:
+            key_fields["use_mi"] = True
         raw = json.dumps(key_fields, sort_keys=True)
         return hashlib.sha256(raw.encode()).hexdigest()[:12]
 

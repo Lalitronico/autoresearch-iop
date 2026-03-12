@@ -37,6 +37,9 @@ TSV_COLUMNS = [
     "status",
     "runtime_seconds",
     "flags",
+    "use_mi",
+    "mi_n_imputations",
+    "mi_fraction_missing_info",
 ]
 
 

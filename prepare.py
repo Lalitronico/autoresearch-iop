@@ -752,7 +752,13 @@ def create_synthetic_data(n: int = 2000, seed: int = 42) -> pd.DataFrame:
     return df
 
 
-def main(input_path: Path | None = None, output_path: Path | None = None, synthetic: bool = False):
+def main(
+    input_path: Path | None = None,
+    output_path: Path | None = None,
+    synthetic: bool = False,
+    impute: bool = False,
+    impute_m: int = 20,
+):
     """Main preparation pipeline."""
     output_path = output_path or OUTPUT_PATH
 
@@ -781,6 +787,46 @@ def main(input_path: Path | None = None, output_path: Path | None = None, synthe
         json.dump(codebook, f, indent=2, default=str)
     logger.info(f"Saved codebook to {CODEBOOK_PATH}")
 
+    # Multiple imputation
+    if impute:
+        logger.info(f"\n=== Multiple Imputation (M={impute_m}) ===")
+        from imputation.mice_imputer import (
+            create_imputed_datasets,
+            save_imputed_datasets,
+            validate_imputation,
+        )
+        from core.types import Circumstance
+
+        circ_cols = [c.value for c in Circumstance]
+        available_circs = [c for c in circ_cols if c in df_analytical.columns]
+        missing_rates = {
+            c: float(df_analytical[c].isna().mean() * 100)
+            for c in available_circs
+            if df_analytical[c].isna().any()
+        }
+        logger.info(f"Columns with missing data: {missing_rates}")
+
+        imputed_dfs = create_imputed_datasets(
+            df_analytical, m=impute_m, seed=42
+        )
+
+        imputed_dir = PROCESSED_DIR / "imputed"
+        metadata = {
+            "seed": 42,
+            "vars_imputed": list(missing_rates.keys()),
+            "missingness_rates": missing_rates,
+            "source_file": str(output_path),
+        }
+        save_imputed_datasets(imputed_dfs, imputed_dir, metadata)
+
+        # Validate
+        validation = validate_imputation(df_analytical, imputed_dfs)
+        if validation["all_passed"]:
+            logger.info("Imputation validation: ALL PASSED")
+        else:
+            logger.warning(f"Imputation validation: SOME CHECKS FAILED")
+            logger.warning(json.dumps(validation["checks"], indent=2))
+
     # EDA summary
     logger.info("\n=== Dataset Summary ===")
     logger.info(f"Observations: {len(df_analytical)}")
@@ -797,6 +843,16 @@ if __name__ == "__main__":
     parser.add_argument("--input", type=Path, help="Path to raw data file")
     parser.add_argument("--output", type=Path, help="Output path for analytical dataset")
     parser.add_argument("--synthetic", action="store_true", help="Generate synthetic test data")
+    parser.add_argument("--impute", action="store_true",
+                        help="Run MICE multiple imputation on circumstance variables")
+    parser.add_argument("--impute-m", type=int, default=20,
+                        help="Number of imputed datasets (default: 20)")
     args = parser.parse_args()
 
-    main(input_path=args.input, output_path=args.output, synthetic=args.synthetic)
+    main(
+        input_path=args.input,
+        output_path=args.output,
+        synthetic=args.synthetic,
+        impute=args.impute,
+        impute_m=args.impute_m,
+    )

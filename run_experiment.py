@@ -18,7 +18,7 @@ from core.data_loader import DataRegistry
 from core.specification import ExperimentSpec
 from core.types import EstimationMethod, ExperimentStatus, IncomeVariable
 from evaluation.diagnostics import run_diagnostics, DiagnosticResult
-from evaluation.metrics import compute_iop_with_ci, IOpEstimate
+from evaluation.metrics import compute_iop_with_ci, compute_iop_with_ci_mi, IOpEstimate, MIPooledEstimate
 from methods.parametric import estimate_parametric
 from methods.nonparametric import estimate_nonparametric
 from methods.ml_methods import estimate_xgboost, estimate_random_forest
@@ -47,6 +47,11 @@ class ExperimentResult:
     diagnostics: dict[str, Any] = field(default_factory=dict)
     runtime_seconds: float = 0.0
     error_message: str = ""
+    # MI-specific fields
+    mi_within_variance: float | None = None
+    mi_between_variance: float | None = None
+    mi_fraction_missing_info: float | None = None
+    mi_n_imputations: int | None = None
 
 
 # Method dispatcher
@@ -56,6 +61,17 @@ _METHOD_MAP = {
     EstimationMethod.XGBOOST.value: estimate_xgboost,
     EstimationMethod.RANDOM_FOREST.value: estimate_random_forest,
 }
+
+
+def _mi_bootstrap_n(method: str) -> int:
+    """Tiered bootstrap per imputation for MI specs."""
+    tiers = {
+        EstimationMethod.OLS.value: 100,
+        EstimationMethod.DECISION_TREE.value: 100,
+        EstimationMethod.XGBOOST.value: 10,
+        EstimationMethod.RANDOM_FOREST.value: 5,
+    }
+    return tiers.get(method, 100)
 
 
 def run_single_experiment(
@@ -102,6 +118,10 @@ def run_single_experiment(
             )
             _log_result(spec, result)
             return result
+
+        # --- MI branch ---
+        if getattr(spec, "use_mi", False):
+            return _run_mi_experiment(spec, data_registry, start)
 
         y, X, valid_idx = data_registry.get_sample_for_spec(spec)
     except Exception as e:
@@ -225,6 +245,112 @@ def run_single_experiment(
         logger.warning(f"  FLAGS: {diag.flags}")
     if diag.warnings:
         logger.info(f"  Warnings: {diag.warnings}")
+
+    return result
+
+
+def _run_mi_experiment(
+    spec: ExperimentSpec,
+    data_registry: DataRegistry,
+    start: float,
+) -> ExperimentResult:
+    """Run experiment using multiple imputation with Rubin's rules."""
+    if not data_registry.has_imputed_data:
+        result = ExperimentResult(
+            spec_id=spec.spec_id,
+            status=ExperimentStatus.FAILED.value,
+            error_message="No imputed data available. Run prepare.py --impute first.",
+        )
+        _log_result(spec, result)
+        return result
+
+    estimation_fn = _METHOD_MAP.get(spec.method)
+    if estimation_fn is None:
+        if spec.method == EstimationMethod.CONDITIONAL_FOREST.value:
+            estimation_fn = estimate_nonparametric
+        else:
+            result = ExperimentResult(
+                spec_id=spec.spec_id,
+                status=ExperimentStatus.FAILED.value,
+                error_message=f"Unknown method: {spec.method}",
+            )
+            _log_result(spec, result)
+            return result
+
+    boot_n = _mi_bootstrap_n(spec.method)
+
+    try:
+        mi_estimate = compute_iop_with_ci_mi(
+            data_registry=data_registry,
+            spec=spec,
+            estimation_fn=estimation_fn,
+            measure=spec.inequality_measure,
+            decomposition_type=spec.decomposition_type,
+            method_params=spec.method_params_dict,
+            m_total=data_registry.n_imputations,
+            bootstrap_n=boot_n,
+            seed=spec.seed,
+        )
+    except Exception as e:
+        result = ExperimentResult(
+            spec_id=spec.spec_id,
+            status=ExperimentStatus.FAILED.value,
+            error_message=f"MI estimation error: {e}",
+            runtime_seconds=time.perf_counter() - start,
+        )
+        _log_result(spec, result)
+        return result
+
+    # Run diagnostics
+    from evaluation.diagnostics import run_diagnostics
+    diag = run_diagnostics(
+        iop_share=mi_estimate.iop_share,
+        ci_lower=mi_estimate.iop_share_ci_lower,
+        ci_upper=mi_estimate.iop_share_ci_upper,
+        n_obs=mi_estimate.n_obs,
+        n_types=mi_estimate.n_types,
+        r_squared=mi_estimate.r_squared,
+        cv_r_squared=mi_estimate.cv_r_squared,
+        total_inequality=mi_estimate.total_inequality,
+    )
+
+    runtime = time.perf_counter() - start
+
+    result = ExperimentResult(
+        spec_id=spec.spec_id,
+        status=ExperimentStatus.SUCCESS.value,
+        iop_share=mi_estimate.iop_share,
+        iop_absolute=mi_estimate.iop_absolute,
+        ci_lower=mi_estimate.iop_share_ci_lower,
+        ci_upper=mi_estimate.iop_share_ci_upper,
+        total_inequality=mi_estimate.total_inequality,
+        r_squared=mi_estimate.r_squared,
+        cv_r_squared=mi_estimate.cv_r_squared,
+        n_obs=mi_estimate.n_obs,
+        n_types=mi_estimate.n_types,
+        variable_importance=mi_estimate.variable_importance,
+        shap_importance=mi_estimate.shap_importance,
+        diagnostics={
+            "flags": diag.flags,
+            "warnings": diag.warnings,
+            "metrics": diag.metrics,
+        },
+        runtime_seconds=runtime,
+        mi_within_variance=mi_estimate.within_variance,
+        mi_between_variance=mi_estimate.between_variance,
+        mi_fraction_missing_info=mi_estimate.fraction_missing_info,
+        mi_n_imputations=mi_estimate.n_imputations,
+    )
+
+    _log_result(spec, result)
+
+    logger.info(
+        f"Spec {spec.spec_id} [MI]: IOp={mi_estimate.iop_share:.4f} "
+        f"[{mi_estimate.iop_share_ci_lower:.4f}, {mi_estimate.iop_share_ci_upper:.4f}] "
+        f"n={mi_estimate.n_obs} FMI={mi_estimate.fraction_missing_info:.3f} | {runtime:.1f}s"
+    )
+    if diag.flags:
+        logger.warning(f"  FLAGS: {diag.flags}")
 
     return result
 

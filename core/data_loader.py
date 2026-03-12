@@ -27,15 +27,19 @@ PROCESSED_DIR = DATA_DIR / "processed"
 CODEBOOK_PATH = DATA_DIR / "codebook.json"
 
 ANALYTICAL_FILE = PROCESSED_DIR / "emovi_analytical.parquet"
+IMPUTED_DIR = PROCESSED_DIR / "imputed"
 
 
 class DataRegistry:
     """Central access point for ESRU-EMOVI data."""
 
-    def __init__(self, data_path: Path | None = None):
+    def __init__(self, data_path: Path | None = None, imputed_dir: Path | None = None):
         self._data_path = data_path or ANALYTICAL_FILE
+        self._imputed_dir = imputed_dir or IMPUTED_DIR
         self._df: pd.DataFrame | None = None
         self._codebook: dict[str, Any] | None = None
+        self._imputed_cache: dict[int, pd.DataFrame] = {}
+        self._imputed_meta: dict[str, Any] | None = None
 
     @property
     def df(self) -> pd.DataFrame:
@@ -177,3 +181,112 @@ class DataRegistry:
             return y_clean, X_clean, combined.index
         finally:
             self._df = original_df
+
+    # --- Multiple Imputation support ---
+
+    @property
+    def has_imputed_data(self) -> bool:
+        """Check if imputed datasets are available."""
+        meta_path = self._imputed_dir / "metadata.json"
+        return meta_path.exists()
+
+    @property
+    def n_imputations(self) -> int:
+        """Number of imputed datasets available."""
+        meta = self._get_imputation_metadata()
+        return meta.get("m", 0)
+
+    def _get_imputation_metadata(self) -> dict[str, Any]:
+        """Load and cache imputation metadata."""
+        if self._imputed_meta is None:
+            meta_path = self._imputed_dir / "metadata.json"
+            if not meta_path.exists():
+                return {}
+            with open(meta_path, encoding="utf-8") as f:
+                self._imputed_meta = json.load(f)
+        return self._imputed_meta
+
+    def load_imputed(self, m: int) -> pd.DataFrame:
+        """Load the m-th imputed dataset, with caching."""
+        if m in self._imputed_cache:
+            return self._imputed_cache[m]
+
+        path = self._imputed_dir / f"m_{m:02d}.parquet"
+        if not path.exists():
+            raise FileNotFoundError(
+                f"Imputed dataset {m} not found at {path}. "
+                f"Run prepare.py --impute first."
+            )
+        df = pd.read_parquet(path)
+        self._imputed_cache[m] = df
+        return df
+
+    def get_sample_for_spec_mi(
+        self, spec, m: int
+    ) -> tuple[pd.Series, pd.DataFrame, pd.Index]:
+        """Get filtered income and circumstances from imputed dataset m.
+
+        Unlike get_sample_for_spec, this only drops NaN on income
+        (not circumstances, since they are fully imputed).
+        For hh_pc_imputed (0% missing), n is preserved at full sample size.
+        """
+        imp_df = self.load_imputed(m)
+
+        # Apply sample filter
+        sf = SampleFilter(spec.sample_filter)
+        filters = {
+            SampleFilter.ALL: lambda d: d,
+            SampleFilter.MALE: lambda d: d[d["gender"] == 1],
+            SampleFilter.FEMALE: lambda d: d[d["gender"] == 0],
+            SampleFilter.AGE_25_44: lambda d: d[d["age"].between(25, 44)],
+            SampleFilter.AGE_45_64: lambda d: d[d["age"].between(45, 64)],
+            SampleFilter.AGE_25_55: lambda d: d[d["age"].between(25, 55)],
+            SampleFilter.URBAN: lambda d: d[d["urban"] == 1],
+            SampleFilter.RURAL: lambda d: d[d["urban"] == 0],
+            SampleFilter.URBAN_MALE: lambda d: d[(d["urban"] == 1) & (d["gender"] == 1)],
+            SampleFilter.URBAN_FEMALE: lambda d: d[(d["urban"] == 1) & (d["gender"] == 0)],
+            SampleFilter.RURAL_MALE: lambda d: d[(d["urban"] == 0) & (d["gender"] == 1)],
+            SampleFilter.RURAL_FEMALE: lambda d: d[(d["urban"] == 0) & (d["gender"] == 0)],
+            SampleFilter.COHORT_1: lambda d: d[d["age"].between(25, 34)],
+            SampleFilter.COHORT_2: lambda d: d[d["age"].between(35, 44)],
+            SampleFilter.COHORT_3: lambda d: d[d["age"].between(45, 54)],
+            SampleFilter.COHORT_4: lambda d: d[d["age"].between(55, 64)],
+        }
+        filter_fn = filters.get(sf)
+        if filter_fn is None:
+            raise ValueError(f"No filter implementation for {sf}")
+        filtered = filter_fn(imp_df)
+
+        # Get income
+        iv = IncomeVariable(spec.income_variable)
+        base_col = iv.base_variable
+        if base_col not in filtered.columns:
+            raise KeyError(f"Income variable '{base_col}' not in imputed dataset")
+
+        y = filtered[base_col].copy()
+        if iv.is_log:
+            y = y.where(y > 0, np.nan)
+            y = np.log(y)
+
+        # Get circumstances
+        circ_names = list(spec.circumstances)
+        missing = [c for c in circ_names if c not in filtered.columns]
+        if missing:
+            raise KeyError(f"Circumstance variables not in imputed dataset: {missing}")
+        X = filtered[circ_names].copy()
+
+        # Only drop NaN on income (circs should be complete after imputation)
+        combined = pd.concat([y.rename("__income__"), X], axis=1)
+        income_valid = combined["__income__"].notna()
+        combined = combined[income_valid]
+
+        y_clean = combined["__income__"]
+        X_clean = combined.drop(columns=["__income__"])
+
+        return y_clean, X_clean, combined.index
+
+    def get_all_mi_samples(self, spec):
+        """Generator yielding (y, X, idx) for each imputed dataset."""
+        n_imp = self.n_imputations
+        for m in range(n_imp):
+            yield self.get_sample_for_spec_mi(spec, m)
